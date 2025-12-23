@@ -1,0 +1,12 @@
+- Break down current frontend/app/page.js into components
+- Mobile integration with Capacitor for iOS and Android
+    - Switch map library to @capacitor/google-maps
+- Improve UI for mobile
+- Update AI integration to use Google Vertex AI or Google Maps Grounding (https://mapsplatform.google.com/ai/)
+    - Ensure it returns Place IDs for each suggested location
+- Structured Python tool calls for agentic application
+- ChatInterface should show Location Cards using Place IDs
+- Supabase for user authentication and data storage 
+- Make locations on map clickable to add to itinerary
+- Allow reordering of itinerary items via drag-and-drop
+- Set start/end location for route

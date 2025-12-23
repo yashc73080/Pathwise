@@ -1,0 +1,8 @@
+flask
+flask-cors
+python-dotenv
+googlemaps
+requests
+gunicorn
+networkx
+openai

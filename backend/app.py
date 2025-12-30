@@ -7,8 +7,8 @@ from christofides import tsp
 from openai import OpenAI
 import json
 
-# Load environment variables from a .env file
-env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env.local')
+# Load environment variables from backend/.env.local
+env_path = os.path.join(os.path.dirname(__file__), '.env.local')
 load_dotenv(env_path)
 
 # Initialize OpenAI client

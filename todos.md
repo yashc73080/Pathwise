@@ -1,8 +1,8 @@
 ## Phase 1: Refactoring & Stability
-- [ ] Refactor `frontend/app/page.js`: Extract Map, Sidebar, and Search into separate components
-- [ ] Implement Context API for state management (avoid prop drilling)
-- [ ] Make map markers clickable to trigger "Add to Itinerary"
-- [ ] Replace `alert()` with toast notifications for errors
+- [x] Refactor `frontend/app/page.js`: Extract Map, Sidebar, and Search into separate components
+- [x] Implement Context API for state management (avoid prop drilling)
+- [x] Make map markers clickable to trigger "Add to Itinerary"
+- [x] Replace `alert()` with toast notifications for errors
 
 ## Phase 2: Core Features
 - [ ] Implement Drag-and-Drop reordering for itinerary list (@hello-pangea/dnd)

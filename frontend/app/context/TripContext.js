@@ -35,18 +35,20 @@ export function TripProvider({ children }) {
     }, [apiKey]);
 
 
-    const addToItinerary = () => {
-        if (currentPlace && !selectedLocations.some(loc => loc.name === currentPlace.name)) {
+    const addToItinerary = (place = null) => {
+        const locationToAdd = place || currentPlace;
+
+        if (locationToAdd && !selectedLocations.some(loc => loc.name === locationToAdd.name)) {
             const marker = new window.google.maps.Marker({
                 map: map,
-                position: { lat: currentPlace.lat, lng: currentPlace.lng },
-                title: currentPlace.name,
+                position: { lat: locationToAdd.lat, lng: locationToAdd.lng },
+                title: locationToAdd.name,
                 icon: {
                     url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
                 }
             });
 
-            setSelectedLocations(prev => [...prev, { ...currentPlace, marker }]);
+            setSelectedLocations(prev => [...prev, { ...locationToAdd, marker }]);
             setCurrentPlace(null);
 
             // We don't clear the input directly here anymore, the component should handle it or observe state
@@ -55,7 +57,7 @@ export function TripProvider({ children }) {
                 setCurrentMarker(null);
             }
             toast.success('Added to itinerary!');
-        } else if (selectedLocations.some(loc => loc.name === currentPlace?.name)) {
+        } else if (selectedLocations.some(loc => loc.name === locationToAdd?.name)) {
             toast.error('Location already in itinerary');
         }
     };

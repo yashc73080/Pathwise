@@ -8,6 +8,8 @@
 - [ ] Implement Drag-and-Drop reordering for itinerary list (@hello-pangea/dnd)
 - [ ] Add UI controls to designate specific "Start" and "End" locations
 - [ ] Update `backend/christofides.py` to handle fixed start/end points
+
+## Phase 2.5: Supabase Integration
 - [ ] Integrate Supabase Auth (Sign up/Login)
 - [ ] Create Supabase 'itineraries' table to save/load user trips
 

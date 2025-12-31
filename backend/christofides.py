@@ -55,19 +55,30 @@ def find_minimum_weight_perfect_matching(G, odd_degree_vertices):
     matching = nx.min_weight_matching(H)
     return matching
 
-def tsp(locations, start_index=0):
+def tsp(locations, start_index=0, end_index=None):
     """
     Implementation of Christofides algorithm for TSP.
     
     Args:
         locations: List of dictionaries containing location data with 'lat' and 'lng'
         start_index: Index of the starting location
+        end_index: Optional index of the ending location (if None, creates a cycle)
     
     Returns:
         List of locations in optimized order
     """
     if len(locations) < 2:
         return locations
+    
+    # Validate indices
+    if start_index < 0 or start_index >= len(locations):
+        start_index = 0
+    if end_index is not None:
+        if end_index < 0 or end_index >= len(locations):
+            end_index = None
+        elif end_index == start_index and len(locations) > 2:
+            # If start and end are the same with more than 2 locations, treat as cycle
+            end_index = None
     
     # Build the complete graph
     G = build_graph(locations)
@@ -88,30 +99,65 @@ def tsp(locations, start_index=0):
     else:
         H = nx.MultiGraph(T)
     
-    # Find Eulerian circuit
+    # Find Eulerian circuit/path
     try:
-        euler_circuit = list(nx.eulerian_circuit(H, source=start_index))
-    except nx.NetworkXError:
-        # If no Eulerian circuit exists, fall back to a simple path
-        euler_circuit = list(nx.edge_dfs(H, source=start_index))
+        if end_index is not None and end_index != start_index:
+            # Try to find Eulerian path from start to end
+            try:
+                euler_path = list(nx.eulerian_path(H, source=start_index))
+            except:
+                euler_path = list(nx.edge_dfs(H, source=start_index))
+            euler_edges = euler_path
+        else:
+            # Find Eulerian circuit for cycle
+            try:
+                euler_circuit = list(nx.eulerian_circuit(H, source=start_index))
+                euler_edges = euler_circuit
+            except nx.NetworkXError:
+                euler_edges = list(nx.edge_dfs(H, source=start_index))
+    except:
+        euler_edges = list(nx.edge_dfs(H, source=start_index))
     
-    # Convert Eulerian circuit to Hamiltonian cycle
+    # Convert Eulerian path/circuit to Hamiltonian path
     visited = set()
     hamiltonian_path = []
     
-    for u, v in euler_circuit:
+    for u, v in euler_edges:
         if u not in visited:
             hamiltonian_path.append(u)
             visited.add(u)
     
-    # Ensure we start with the start_index
-    if hamiltonian_path[0] != start_index:
-        start_pos = hamiltonian_path.index(start_index)
-        hamiltonian_path = hamiltonian_path[start_pos:] + hamiltonian_path[:start_pos]
+    # Add the last vertex if it's not already included
+    if euler_edges:
+        last_v = euler_edges[-1][1]
+        if last_v not in visited:
+            hamiltonian_path.append(last_v)
     
-    # Complete the cycle
-    if hamiltonian_path[-1] != start_index:
-        hamiltonian_path.append(start_index)
+    # Ensure we start with start_index
+    if hamiltonian_path and hamiltonian_path[0] != start_index:
+        if start_index in hamiltonian_path:
+            start_pos = hamiltonian_path.index(start_index)
+            hamiltonian_path = hamiltonian_path[start_pos:] + hamiltonian_path[:start_pos]
+    
+    # Handle end_index for path TSP
+    if end_index is not None and end_index != start_index and end_index in hamiltonian_path:
+        # Remove end_index from its current position
+        end_pos = hamiltonian_path.index(end_index)
+        hamiltonian_path.remove(end_index)
+        # Add it at the end
+        hamiltonian_path.append(end_index)
+        # If we removed it from the start, rotate
+        if hamiltonian_path[0] != start_index and start_index in hamiltonian_path:
+            start_pos = hamiltonian_path.index(start_index)
+            hamiltonian_path = hamiltonian_path[start_pos:] + hamiltonian_path[:start_pos]
+            # Re-add end_index at the end
+            if end_index in hamiltonian_path:
+                hamiltonian_path.remove(end_index)
+            hamiltonian_path.append(end_index)
+    elif end_index is None or end_index == start_index:
+        # Complete the cycle if no end_index specified
+        if hamiltonian_path and hamiltonian_path[-1] != start_index:
+            hamiltonian_path.append(start_index)
     
     # Convert indices back to locations
     optimized_route = [locations[i] for i in hamiltonian_path]

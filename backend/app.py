@@ -35,16 +35,49 @@ def home():
 def submit_itinerary():
     data = request.json
     locations = data.get("locations", [])
+    start_index = data.get("start_index", 0)
+    end_index = data.get("end_index", None)
     
     if not locations or len(locations) < 2:
         return jsonify({"error": "You need at least two locations to calculate a route."}), 400
 
+    # Validate indices
+    if start_index is not None and (start_index < 0 or start_index >= len(locations)):
+        start_index = 0
+    if end_index is not None and (end_index < 0 or end_index >= len(locations)):
+        end_index = None
+
     try:
         # Run the TSP algorithm on the entered locations
-        optimized_route = tsp(locations, 0)  # Start from the first location
+        optimized_route = tsp(locations, start_index, end_index)
+        
+        # Convert locations to indices for response
+        # Since optimized_route contains location dicts in optimized order,
+        # we need to map them back to original indices
+        route_indices = []
+        used_indices = set()
+        for loc in optimized_route:
+            # Try to find matching location by name and coordinates
+            found = False
+            for i, orig_loc in enumerate(locations):
+                if i not in used_indices and orig_loc['name'] == loc['name']:
+                    # Check if coordinates match (with small tolerance for floating point)
+                    if abs(orig_loc['lat'] - loc['lat']) < 0.0001 and abs(orig_loc['lng'] - loc['lng']) < 0.0001:
+                        route_indices.append(i)
+                        used_indices.add(i)
+                        found = True
+                        break
+            if not found:
+                # Fallback: find first unused location with matching name
+                for i, orig_loc in enumerate(locations):
+                    if i not in used_indices and orig_loc['name'] == loc['name']:
+                        route_indices.append(i)
+                        used_indices.add(i)
+                        break
+        
         return jsonify({
             "status": "success",
-            "optimized_route": [locations.index(loc) for loc in optimized_route]
+            "optimized_route": route_indices
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -104,7 +137,9 @@ def optimize_route():
         "locations": [
             {"name": "Empire State Building", "lat": 40.7484, "lng": -73.9857},
             ...
-        ]
+        ],
+        "start_index": 0 (optional),
+        "end_index": null (optional)
     }
     
     Returns:
@@ -115,14 +150,22 @@ def optimize_route():
     }
     """
     locations = request.json.get('locations', [])
+    start_index = request.json.get('start_index', 0)
+    end_index = request.json.get('end_index', None)
     
     if len(locations) < 2:
         return jsonify({
             'error': 'At least two locations are required for route optimization'
         }), 400
     
+    # Validate indices
+    if start_index is not None and (start_index < 0 or start_index >= len(locations)):
+        start_index = 0
+    if end_index is not None and (end_index < 0 or end_index >= len(locations)):
+        end_index = None
+    
     # Use Christofides algorithm to optimize route
-    optimized_route = tsp(locations)
+    optimized_route = tsp(locations, start_index, end_index)
     
     # Calculate total distance and estimated time
     total_distance = sum(

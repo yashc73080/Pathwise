@@ -1,6 +1,7 @@
 'use client';
 
 import { useTrip } from '../context/TripContext';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 export default function Sidebar() {
     const {
@@ -10,8 +11,25 @@ export default function Sidebar() {
         removeLocation,
         submitItinerary,
         isSubmitting,
-        clearAllLocations
+        clearAllLocations,
+        reorderLocations,
+        startIndex,
+        endIndex,
+        setStartLocation,
+        setEndLocation
     } = useTrip();
+
+    const handleDragEnd = (result) => {
+        if (!result.destination) {
+            return;
+        }
+
+        if (result.destination.index === result.source.index) {
+            return;
+        }
+
+        reorderLocations(result.source.index, result.destination.index);
+    };
 
     return (
         <>
@@ -47,30 +65,94 @@ export default function Sidebar() {
 
                 {/* Locations List */}
                 <div className="flex-1 overflow-y-auto">
-                    <div className="p-4 space-y-4">
-                        {selectedLocations.length === 0 ? (
+                    {selectedLocations.length === 0 ? (
+                        <div className="p-4">
                             <p className="text-gray-500 text-center py-8">Search and add locations to create your itinerary</p>
-                        ) : (
-                            selectedLocations.map((location, index) => (
-                                <div key={index} className="bg-gray-50 rounded-lg p-3 border border-gray-100 shadow-sm">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <p className="font-medium text-gray-900">{location.name}</p>
-                                            <p className="text-sm text-gray-500">{location.address}</p>
-                                        </div>
-                                        <button
-                                            onClick={() => removeLocation(index)}
-                                            className="text-gray-400 hover:text-red-500 p-1 transition-colors"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
+                        </div>
+                    ) : (
+                        <DragDropContext onDragEnd={handleDragEnd}>
+                            <Droppable droppableId="locations">
+                                {(provided) => (
+                                    <div
+                                        {...provided.droppableProps}
+                                        ref={provided.innerRef}
+                                        className="p-4 space-y-4"
+                                    >
+                                        {selectedLocations.map((location, index) => (
+                                            <Draggable key={index} draggableId={`location-${index}`} index={index}>
+                                                {(provided, snapshot) => (
+                                                    <div
+                                                        ref={provided.innerRef}
+                                                        {...provided.draggableProps}
+                                                        className={`bg-gray-50 rounded-lg p-3 border border-gray-100 shadow-sm ${snapshot.isDragging ? 'shadow-lg' : ''}`}
+                                                    >
+                                                        <div className="flex justify-between items-start gap-2">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
+                                                                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    {startIndex === index && (
+                                                                        <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
+                                                                            START
+                                                                        </span>
+                                                                    )}
+                                                                    {endIndex === index && (
+                                                                        <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">
+                                                                            END
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="font-medium text-gray-900">{location.name}</p>
+                                                                <p className="text-sm text-gray-500">{location.address}</p>
+                                                            </div>
+                                                            <div className="flex flex-col gap-2 items-end">
+                                                                <div className="flex gap-1">
+                                                                    <button
+                                                                        onClick={() => setStartLocation(index)}
+                                                                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                                                                            startIndex === index
+                                                                                ? 'bg-green-600 text-white'
+                                                                                : 'bg-gray-200 text-gray-700 hover:bg-green-100'
+                                                                        }`}
+                                                                        title={startIndex === index ? 'Remove as start' : 'Set as start'}
+                                                                    >
+                                                                        S
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => setEndLocation(index)}
+                                                                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                                                                            endIndex === index
+                                                                                ? 'bg-red-600 text-white'
+                                                                                : 'bg-gray-200 text-gray-700 hover:bg-red-100'
+                                                                        }`}
+                                                                        title={endIndex === index ? 'Remove as end' : 'Set as end'}
+                                                                    >
+                                                                        E
+                                                                    </button>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => removeLocation(index)}
+                                                                    className="text-gray-400 hover:text-red-500 p-1 transition-colors"
+                                                                >
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </Draggable>
+                                        ))}
+                                        {provided.placeholder}
                                     </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
+                                )}
+                            </Droppable>
+                        </DragDropContext>
+                    )}
                 </div>
 
                 {/* Bottom Actions */}

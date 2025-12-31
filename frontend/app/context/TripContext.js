@@ -18,6 +18,8 @@ export function TripProvider({ children }) {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isLocationSelected, setIsLocationSelected] = useState(true);
+    const [startIndex, setStartIndex] = useState(null);
+    const [endIndex, setEndIndex] = useState(null);
 
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -72,6 +74,22 @@ export function TripProvider({ children }) {
         const newLocations = selectedLocations.filter((_, i) => i !== index);
         setSelectedLocations(newLocations);
 
+        // Update start/end indices if they are affected
+        if (startIndex !== null) {
+            if (startIndex === index) {
+                setStartIndex(null);
+            } else if (startIndex > index) {
+                setStartIndex(startIndex - 1);
+            }
+        }
+        if (endIndex !== null) {
+            if (endIndex === index) {
+                setEndIndex(null);
+            } else if (endIndex > index) {
+                setEndIndex(endIndex - 1);
+            }
+        }
+
         // Clear the optimized route when locations are modified
         setOptimizedRoute(null);
         if (routePolyline) {
@@ -98,7 +116,84 @@ export function TripProvider({ children }) {
         // Reset states
         setSelectedLocations([]);
         setOptimizedRoute(null);
+        setStartIndex(null);
+        setEndIndex(null);
         toast.success('All locations cleared');
+    };
+
+    const reorderLocations = (sourceIndex, destinationIndex) => {
+        const result = Array.from(selectedLocations);
+        const [removed] = result.splice(sourceIndex, 1);
+        result.splice(destinationIndex, 0, removed);
+        
+        // Update start/end indices if they were affected by the reorder
+        let newStartIndex = startIndex;
+        let newEndIndex = endIndex;
+        
+        if (startIndex !== null) {
+            if (startIndex === sourceIndex) {
+                // Start location was moved
+                newStartIndex = destinationIndex;
+            } else if (sourceIndex < startIndex && destinationIndex >= startIndex) {
+                // Item moved from before start to after start
+                newStartIndex = startIndex - 1;
+            } else if (sourceIndex > startIndex && destinationIndex <= startIndex) {
+                // Item moved from after start to before start
+                newStartIndex = startIndex + 1;
+            }
+        }
+        
+        if (endIndex !== null) {
+            if (endIndex === sourceIndex) {
+                // End location was moved
+                newEndIndex = destinationIndex;
+            } else if (sourceIndex < endIndex && destinationIndex >= endIndex) {
+                // Item moved from before end to after end
+                newEndIndex = endIndex - 1;
+            } else if (sourceIndex > endIndex && destinationIndex <= endIndex) {
+                // Item moved from after end to before end
+                newEndIndex = endIndex + 1;
+            }
+        }
+        
+        setSelectedLocations(result);
+        if (startIndex !== null) setStartIndex(newStartIndex);
+        if (endIndex !== null) setEndIndex(newEndIndex);
+        
+        // Clear optimized route when reordering
+        setOptimizedRoute(null);
+        if (routePolyline) {
+            routePolyline.setMap(null);
+            setRoutePolyline(null);
+        }
+    };
+
+    const setStartLocation = (index) => {
+        if (index === startIndex) {
+            setStartIndex(null);
+        } else {
+            setStartIndex(index);
+        }
+        // Clear optimized route when start/end changes
+        setOptimizedRoute(null);
+        if (routePolyline) {
+            routePolyline.setMap(null);
+            setRoutePolyline(null);
+        }
+    };
+
+    const setEndLocation = (index) => {
+        if (index === endIndex) {
+            setEndIndex(null);
+        } else {
+            setEndIndex(index);
+        }
+        // Clear optimized route when start/end changes
+        setOptimizedRoute(null);
+        if (routePolyline) {
+            routePolyline.setMap(null);
+            setRoutePolyline(null);
+        }
     };
 
     const submitItinerary = async () => {
@@ -116,12 +211,20 @@ export function TripProvider({ children }) {
         }));
 
         try {
+            const requestBody = { locations: itineraryData };
+            if (startIndex !== null) {
+                requestBody.start_index = startIndex;
+            }
+            if (endIndex !== null) {
+                requestBody.end_index = endIndex;
+            }
+            
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/submit-itinerary`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ locations: itineraryData }),
+                body: JSON.stringify(requestBody),
             });
 
             if (response.ok) {
@@ -137,7 +240,10 @@ export function TripProvider({ children }) {
                     lng: selectedLocations[index].lng
                 }));
 
-                routeCoordinates.push(routeCoordinates[0]);
+                // Only complete the cycle if no end_index is specified (path vs cycle)
+                if (endIndex === null) {
+                    routeCoordinates.push(routeCoordinates[0]);
+                }
 
                 const newPolyline = new window.google.maps.Polyline({
                     path: routeCoordinates,
@@ -186,10 +292,15 @@ export function TripProvider({ children }) {
         setIsSidebarOpen,
         isLocationSelected,
         setIsLocationSelected,
+        startIndex,
+        endIndex,
         addToItinerary,
         removeLocation,
         clearAllLocations,
-        submitItinerary
+        submitItinerary,
+        reorderLocations,
+        setStartLocation,
+        setEndLocation
     };
 
     return (

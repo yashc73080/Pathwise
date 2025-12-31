@@ -17,6 +17,7 @@ export function TripProvider({ children }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isLocationSelected, setIsLocationSelected] = useState(false);
 
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -183,6 +184,8 @@ export function TripProvider({ children }) {
         setIsChatOpen,
         isSidebarOpen,
         setIsSidebarOpen,
+        isLocationSelected,
+        setIsLocationSelected,
         addToItinerary,
         removeLocation,
         clearAllLocations,

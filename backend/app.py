@@ -191,7 +191,7 @@ def chat():
         # System message for context
         system_message = {
             "role": "system",
-            "content": f"""You are TripWhiz AI, an AI travel assistant with advanced action-taking capabilities. 
+            "content": f"""You are Pathwise AI, an AI travel assistant with advanced action-taking capabilities. 
             Your primary goal is to help users plan and execute their travel itineraries seamlessly.
             The current itinerary includes the following locations: {locations}.
             """

@@ -32,10 +32,10 @@ npm run dev
 ```
 
 ## About the Project
-Our journey to creating TripWhiz began with a simple yet relatable problem. One day, our group members struggled to coordinate a beach trip that involved multiple stops. We realized how challenging it was to optimize our route and manage our time efficiently for multiple destinations. This sparked an idea: wouldn’t it be great to have an itinerary planner that could streamline our travels and help us visit multiple places without too much trouble? So, the idea of TripWhiz was born.
+My journey to creating Pathwise began with a simple yet relatable problem. One day, I struggled to coordinate a beach trip that involved multiple stops. I realized how challenging it was to optimize my route and manage my time efficiently for multiple destinations. This sparked an idea: wouldn’t it be great to have an itinerary planner that could streamline my travels and help me visit multiple places without too much trouble? So, the idea of Pathwise was born.
 
 ## How We Built Our Project
-To bring TripWhiz to life, we utilized the Google Cloud Platform and its APIs to enhance functionality. For the front end, we chose Next.js and React.js to create a responsive and user-friendly interface. We implemented Python with Flask on the backend, allowing us to handle data efficiently and serve user requests smoothly.
+To bring Pathwise to life, I utilized the Google Cloud Platform and its APIs to enhance functionality. For the front end, I chose Next.js and React.js to create a responsive and user-friendly interface. I implemented Python with Flask on the backend, allowing me to handle data efficiently and serve user requests smoothly.
 
 ## Built With
 - HTML/CSS

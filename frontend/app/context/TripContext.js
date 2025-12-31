@@ -38,7 +38,13 @@ export function TripProvider({ children }) {
     }, [apiKey]);
 
 
-    const addToItinerary = (place = null) => {
+    const addToItinerary = (placeOrEvent = null, markerToRemove = null) => {
+        let place = placeOrEvent;
+        // Check if the argument is a synthetic event or missing location data
+        if (place && (place.nativeEvent || typeof place.lat === 'undefined')) {
+            place = null;
+        }
+
         const locationToAdd = place || currentPlace;
 
         if (locationToAdd && !selectedLocations.some(loc => loc.name === locationToAdd.name)) {
@@ -54,11 +60,14 @@ export function TripProvider({ children }) {
             setSelectedLocations(prev => [...prev, { ...locationToAdd, marker }]);
             setCurrentPlace(null);
 
-            // We don't clear the input directly here anymore, the component should handle it or observe state
-            if (currentMarker) {
-                currentMarker.setMap(null);
-                setCurrentMarker(null);
+            // Clear the temporary marker (red one)
+            // Use explicitly passed marker or fallback to state
+            const markerToClear = markerToRemove || currentMarker;
+            if (markerToClear) {
+                markerToClear.setMap(null);
             }
+            setCurrentMarker(null);
+
             toast.success('Added to itinerary!');
         } else if (selectedLocations.some(loc => loc.name === locationToAdd?.name)) {
             toast.error('Location already in itinerary');
@@ -125,11 +134,11 @@ export function TripProvider({ children }) {
         const result = Array.from(selectedLocations);
         const [removed] = result.splice(sourceIndex, 1);
         result.splice(destinationIndex, 0, removed);
-        
+
         // Update start/end indices if they were affected by the reorder
         let newStartIndex = startIndex;
         let newEndIndex = endIndex;
-        
+
         if (startIndex !== null) {
             if (startIndex === sourceIndex) {
                 // Start location was moved
@@ -142,7 +151,7 @@ export function TripProvider({ children }) {
                 newStartIndex = startIndex + 1;
             }
         }
-        
+
         if (endIndex !== null) {
             if (endIndex === sourceIndex) {
                 // End location was moved
@@ -155,11 +164,11 @@ export function TripProvider({ children }) {
                 newEndIndex = endIndex + 1;
             }
         }
-        
+
         setSelectedLocations(result);
         if (startIndex !== null) setStartIndex(newStartIndex);
         if (endIndex !== null) setEndIndex(newEndIndex);
-        
+
         // Clear optimized route when reordering
         setOptimizedRoute(null);
         if (routePolyline) {
@@ -218,7 +227,7 @@ export function TripProvider({ children }) {
             if (endIndex !== null) {
                 requestBody.end_index = endIndex;
             }
-            
+
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/submit-itinerary`, {
                 method: 'POST',
                 headers: {

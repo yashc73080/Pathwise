@@ -102,7 +102,7 @@ export default function Map() {
                         btn.onmouseout = () => btn.style.backgroundColor = '#2563eb';
 
                         btn.onclick = () => {
-                            addToItinerary(placeData);
+                            addToItinerary(placeData, newMarker);
                             infoWindow.close();
                         };
 

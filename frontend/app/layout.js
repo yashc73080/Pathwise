@@ -14,7 +14,7 @@ const geistMono = localFont({
 });
 
 export const metadata = {
-  title: "TripWhiz",
+  title: "Pathwise",
   description: "Optimize your next adventure",
   icons:
     <link

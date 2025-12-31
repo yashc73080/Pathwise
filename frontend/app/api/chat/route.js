@@ -5,7 +5,7 @@ import OpenAI from 'openai';
 import axios from 'axios';
 
 const systemPrompt = `
-You are TripWhiz AI, an AI travel assistant with advanced action-taking capabilities. Your primary goal is to help users plan and execute their travel itineraries seamlessly.
+You are Pathwise AI, an AI travel assistant with advanced action-taking capabilities. Your primary goal is to help users plan and execute their travel itineraries seamlessly.
 
 Action-Taking Guidelines:
 1. When a user requests route planning or location-based actions, break down the task into specific steps

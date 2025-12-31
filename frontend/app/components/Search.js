@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 import { useTrip } from '../context/TripContext';
 
 export default function Search() {
@@ -16,6 +17,49 @@ export default function Search() {
     } = useTrip();
 
     const inputRef = useRef(null);
+    const [isLocating, setIsLocating] = useState(false);
+
+    const handleCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            toast.error('Geolocation is not supported');
+            return;
+        }
+
+        setIsLocating(true);
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const pos = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                };
+
+                if (map) {
+                    map.setCenter(pos);
+                    map.setZoom(15);
+
+                    new window.google.maps.Marker({
+                        position: pos,
+                        map: map,
+                        title: "Your Location",
+                        icon: {
+                            path: window.google.maps.SymbolPath.CIRCLE,
+                            scale: 8,
+                            fillColor: '#4285F4',
+                            fillOpacity: 1,
+                            strokeColor: 'white',
+                            strokeWeight: 2,
+                        },
+                    });
+                }
+                setIsLocating(false);
+            },
+            () => {
+                toast.error('Unable to retrieve your location');
+                setIsLocating(false);
+            }
+        );
+    };
 
     useEffect(() => {
         if (!mapLoaded || !inputRef.current) return;
@@ -101,12 +145,30 @@ export default function Search() {
                     type="text"
                     placeholder="Search for a location"
                 />
+
+                <button
+                    onClick={handleCurrentLocation}
+                    disabled={isLocating}
+                    className="p-3 text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors"
+                    title="Use my current location"
+                >
+                    {isLocating ? (
+                        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    )}
+                </button>
+
+                <div className="h-6 w-px bg-gray-200 mx-1"></div>
                 <button
                     onClick={addToItinerary}
                     disabled={!currentPlace}
                     className={`p-3 rounded-lg transition-colors ${currentPlace
-                            ? 'text-blue-600 hover:bg-gray-100'
-                            : 'text-gray-400'
+                        ? 'text-blue-600 hover:bg-gray-100'
+                        : 'text-gray-400'
                         }`}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

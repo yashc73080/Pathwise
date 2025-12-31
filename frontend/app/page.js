@@ -6,7 +6,7 @@ import Sidebar from './components/Sidebar';
 import Search from './components/Search';
 import RoutePanel from './components/RoutePanel';
 import ChatWidget from './components/ChatWidget';
-import LocationPicker from './components/LocationPicker';
+
 
 export default function Page() {
   return (
@@ -26,7 +26,7 @@ export default function Page() {
             <RoutePanel />
 
             <ChatWidget />
-            <LocationPicker />
+
 
           </div>
         </div>

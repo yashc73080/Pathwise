@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useRef, useEffect } from 'react';
+import { createContext, useContext, useState, useRef, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 
 const TripContext = createContext();
@@ -281,6 +281,34 @@ export function TripProvider({ children }) {
         }
     };
 
+    const optimizedCoords = useMemo(() => {
+        if (!optimizedRoute || !selectedLocations.length) return [];
+        
+        return optimizedRoute.map(index => ({
+            name: selectedLocations[index].name,
+            lat: selectedLocations[index].lat,
+            lng: selectedLocations[index].lng
+        }));
+    }, [optimizedRoute, selectedLocations]);
+
+    const exportToGoogleMaps = () => {
+        if (!optimizedCoords || optimizedCoords.length === 0) {
+            toast.error("No optimized route to export");
+            return;
+        }
+
+        const baseUrl = "https://www.google.com/maps/dir/";
+        
+        const waypoints = optimizedCoords
+            .map(loc => `${loc.lat},${loc.lng}`)
+            .join('/');
+        
+        const googleMapsUrl = `${baseUrl}${waypoints}`;
+        
+        window.open(googleMapsUrl, '_blank');
+        toast.success("Opening in Google Maps!");
+    };
+
     const value = {
         mapLoaded,
         selectedLocations,
@@ -309,7 +337,9 @@ export function TripProvider({ children }) {
         submitItinerary,
         reorderLocations,
         setStartLocation,
-        setEndLocation
+        setEndLocation,
+        optimizedCoords,
+        exportToGoogleMaps
     };
 
     return (

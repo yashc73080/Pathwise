@@ -9,9 +9,9 @@
 - [ ] Add UI controls to designate specific "Start" and "End" locations
 - [ ] Update `backend/christofides.py` to handle fixed start/end points
 
-## Phase 2.5: Supabase Integration
-- [ ] Integrate Supabase Auth (Sign up/Login)
-- [ ] Create Supabase 'itineraries' table to save/load user trips
+## Phase 2.5: Firebase Integration
+- [x] Integrate Firebase Auth (Sign up/Login)
+- [ ] Create Firebase 'itineraries' table to save/load user trips
 
 ## Phase 3: AI Agent Upgrade
 - [ ] specific: Switch backend AI provider to Google Vertex AI

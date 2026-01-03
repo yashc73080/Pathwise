@@ -29,6 +29,17 @@ export function TripProvider({ children }) {
             setMapLoaded(true);
             return;
         }
+
+        const existingScript = document.querySelector(`script[src^="https://maps.googleapis.com/maps/api/js"]`);
+        if (existingScript) {
+            if (!window.google?.maps) {
+                existingScript.addEventListener('load', () => setMapLoaded(true));
+            } else {
+                setMapLoaded(true);
+            }
+            return;
+        }
+
         const script = document.createElement('script');
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
         script.async = true;
@@ -283,7 +294,7 @@ export function TripProvider({ children }) {
 
     const optimizedCoords = useMemo(() => {
         if (!optimizedRoute || !selectedLocations.length) return [];
-        
+
         return optimizedRoute.map(index => ({
             name: selectedLocations[index].name,
             lat: selectedLocations[index].lat,
@@ -298,13 +309,13 @@ export function TripProvider({ children }) {
         }
 
         const baseUrl = "https://www.google.com/maps/dir/";
-        
+
         const waypoints = optimizedCoords
             .map(loc => `${loc.lat},${loc.lng}`)
             .join('/');
-        
+
         const googleMapsUrl = `${baseUrl}${waypoints}`;
-        
+
         window.open(googleMapsUrl, '_blank');
         toast.success("Opening in Google Maps!");
     };

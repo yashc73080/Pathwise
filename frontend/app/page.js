@@ -8,29 +8,32 @@ import RoutePanel from './components/RoutePanel';
 import ChatWidget from './components/ChatWidget';
 
 
+import { AuthProvider } from './context/authContext';
+import LoginModal from './components/LoginModal';
+import ProfileMenu from './components/ProfileMenu';
+
 export default function Page() {
   return (
-    <TripProvider>
-      <div className="flex h-screen w-screen overflow-hidden">
-        {/* Main Content Container */}
-        <div className="flex-1 flex relative">
-          {/* Map Container */}
-          <div className="flex-1 relative">
+    <AuthProvider>
+      <TripProvider>
+        <div className="flex h-screen w-screen overflow-hidden">
+          {/* Main Content Container */}
+          <div className="flex-1 flex relative">
+            {/* Map Container */}
+            <div className="flex-1 relative">
 
-            <Search />
+              <Search />
+              <Sidebar />
+              <Map />
+              <RoutePanel />
+              <ChatWidget />
+              <LoginModal />
+              <ProfileMenu />
 
-            <Sidebar />
-
-            <Map />
-
-            <RoutePanel />
-
-            <ChatWidget />
-
-
+            </div>
           </div>
         </div>
-      </div>
-    </TripProvider>
+      </TripProvider>
+    </AuthProvider>
   );
 }

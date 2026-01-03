@@ -1,6 +1,8 @@
 'use client';
 
 import { useTrip } from '../context/TripContext';
+import { useAuth } from '../context/authContext';
+import toast from 'react-hot-toast';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 export default function Sidebar() {
@@ -18,6 +20,8 @@ export default function Sidebar() {
         setStartLocation,
         setEndLocation
     } = useTrip();
+
+    const { userLoggedIn, openLoginModal } = useAuth();
 
     const handleDragEnd = (result) => {
         if (!result.destination) {
@@ -112,22 +116,20 @@ export default function Sidebar() {
                                                                 <div className="flex gap-1">
                                                                     <button
                                                                         onClick={() => setStartLocation(index)}
-                                                                        className={`px-2 py-1 text-xs rounded transition-colors ${
-                                                                            startIndex === index
-                                                                                ? 'bg-green-600 text-white'
-                                                                                : 'bg-gray-200 text-gray-700 hover:bg-green-100'
-                                                                        }`}
+                                                                        className={`px-2 py-1 text-xs rounded transition-colors ${startIndex === index
+                                                                            ? 'bg-green-600 text-white'
+                                                                            : 'bg-gray-200 text-gray-700 hover:bg-green-100'
+                                                                            }`}
                                                                         title={startIndex === index ? 'Remove as start' : 'Set as start'}
                                                                     >
                                                                         S
                                                                     </button>
                                                                     <button
                                                                         onClick={() => setEndLocation(index)}
-                                                                        className={`px-2 py-1 text-xs rounded transition-colors ${
-                                                                            endIndex === index
-                                                                                ? 'bg-red-600 text-white'
-                                                                                : 'bg-gray-200 text-gray-700 hover:bg-red-100'
-                                                                        }`}
+                                                                        className={`px-2 py-1 text-xs rounded transition-colors ${endIndex === index
+                                                                            ? 'bg-red-600 text-white'
+                                                                            : 'bg-gray-200 text-gray-700 hover:bg-red-100'
+                                                                            }`}
                                                                         title={endIndex === index ? 'Remove as end' : 'Set as end'}
                                                                     >
                                                                         E
@@ -177,16 +179,36 @@ export default function Sidebar() {
                                     'Optimize Route'
                                 )}
                             </button>
+
                             <button
                                 onClick={clearAllLocations}
                                 className="w-full mt-2 py-2 px-4 text-gray-600 hover:text-gray-900 text-sm transition-colors"
                             >
                                 Clear All Locations
                             </button>
+
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                <button
+                                    onClick={() => {
+                                        if (userLoggedIn) {
+                                            // TODO: Implement actual save logic with logic to firestore
+                                            toast.success('Trip saved successfully!');
+                                        } else {
+                                            openLoginModal();
+                                        }
+                                    }}
+                                    className="w-full py-2 px-4 bg-green-600 text-white rounded-lg font-medium shadow-sm hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                    </svg>
+                                    Save Trip
+                                </button>
+                            </div>
                         </>
                     )}
                 </div>
-            </div>
+            </div >
         </>
     );
 }

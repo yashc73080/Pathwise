@@ -320,6 +320,57 @@ export function TripProvider({ children }) {
         toast.success("Opening in Google Maps!");
     };
 
+    const loadTrip = (trip) => {
+        // Clear current state first
+        clearAllLocations();
+
+        // Restore locations and create markers
+        const newLocations = trip.locations.map(loc => {
+            const marker = new window.google.maps.Marker({
+                map: map,
+                position: { lat: loc.lat, lng: loc.lng },
+                title: loc.name,
+                icon: {
+                    url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                }
+            });
+            return { ...loc, marker };
+        });
+
+        setSelectedLocations(newLocations);
+        setOptimizedRoute(trip.optimizedRoute);
+        if (trip.startIndex !== undefined) setStartIndex(trip.startIndex);
+        if (trip.endIndex !== undefined) setEndIndex(trip.endIndex);
+
+        // Re-draw polyline
+        const routeCoordinates = trip.optimizedRoute.map(index => ({
+            lat: newLocations[index].lat,
+            lng: newLocations[index].lng
+        }));
+
+        if (trip.endIndex === undefined || trip.endIndex === null) {
+            routeCoordinates.push(routeCoordinates[0]);
+        }
+
+        const newPolyline = new window.google.maps.Polyline({
+            path: routeCoordinates,
+            geodesic: true,
+            strokeColor: '#FF0000',
+            strokeOpacity: 1.0,
+            strokeWeight: 2,
+            map: map
+        });
+
+        setRoutePolyline(newPolyline);
+
+        // Fit bounds
+        const bounds = new window.google.maps.LatLngBounds();
+        routeCoordinates.forEach(coord => bounds.extend(coord));
+        map.fitBounds(bounds);
+
+        toast.success(`Trip loaded!`);
+    };
+
     const value = {
         mapLoaded,
         selectedLocations,
@@ -350,7 +401,8 @@ export function TripProvider({ children }) {
         setStartLocation,
         setEndLocation,
         optimizedCoords,
-        exportToGoogleMaps
+        exportToGoogleMaps,
+        loadTrip
     };
 
     return (

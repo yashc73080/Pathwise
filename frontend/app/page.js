@@ -12,6 +12,8 @@ import { AuthProvider } from './context/authContext';
 import LoginModal from './components/LoginModal';
 import ProfileMenu from './components/ProfileMenu';
 
+import SavedTripsModal from './components/SavedTripsModal';
+
 export default function Page() {
   return (
     <AuthProvider>
@@ -29,6 +31,7 @@ export default function Page() {
               <ChatWidget />
               <LoginModal />
               <ProfileMenu />
+              <SavedTripsModal />
 
             </div>
           </div>

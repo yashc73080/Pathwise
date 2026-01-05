@@ -15,6 +15,8 @@ export function AuthProvider({ children }) {
 
     const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
+    const [isSavedTripsModalOpen, setIsSavedTripsModalOpen] = useState(false);
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, initializeUser);
         return unsubscribe;
@@ -34,13 +36,19 @@ export function AuthProvider({ children }) {
     const openLoginModal = () => setIsLoginModalOpen(true);
     const closeLoginModal = () => setIsLoginModalOpen(false);
 
+    const openSavedTripsModal = () => setIsSavedTripsModalOpen(true);
+    const closeSavedTripsModal = () => setIsSavedTripsModalOpen(false);
+
     const value = {
         currentUser,
         userLoggedIn,
         loading,
         isLoginModalOpen,
         openLoginModal,
-        closeLoginModal
+        closeLoginModal,
+        isSavedTripsModalOpen,
+        openSavedTripsModal,
+        closeSavedTripsModal
     }
 
     return (

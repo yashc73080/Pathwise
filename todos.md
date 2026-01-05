@@ -5,13 +5,13 @@
 - [x] Replace `alert()` with toast notifications for errors
 
 ## Phase 2: Core Features
-- [ ] Implement Drag-and-Drop reordering for itinerary list (@hello-pangea/dnd)
-- [ ] Add UI controls to designate specific "Start" and "End" locations
-- [ ] Update `backend/christofides.py` to handle fixed start/end points
+- [x] Implement Drag-and-Drop reordering for itinerary list (@hello-pangea/dnd)
+- [x] Add UI controls to designate specific "Start" and "End" locations
+- [x] Update `backend/christofides.py` to handle fixed start/end points
 
 ## Phase 2.5: Firebase Integration
 - [x] Integrate Firebase Auth (Sign up/Login)
-- [ ] Create Firebase 'itineraries' table to save/load user trips
+- [x] Create Firebase 'itineraries' table to save/load user trips
 
 ## Phase 3: AI Agent Upgrade
 - [ ] specific: Switch backend AI provider to Google Vertex AI

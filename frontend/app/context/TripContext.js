@@ -20,6 +20,10 @@ export function TripProvider({ children }) {
     const [isLocationSelected, setIsLocationSelected] = useState(true);
     const [startIndex, setStartIndex] = useState(null);
     const [endIndex, setEndIndex] = useState(null);
+    // Mobile panel navigation: 'none' | 'itinerary' | 'route' | 'chat'
+    const [activePanel, setActivePanel] = useState('none');
+    // Chat height for mobile: 'minimized' | 'partial' | 'full'
+    const [chatHeight, setChatHeight] = useState('full');
 
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -402,7 +406,11 @@ export function TripProvider({ children }) {
         setEndLocation,
         optimizedCoords,
         exportToGoogleMaps,
-        loadTrip
+        loadTrip,
+        activePanel,
+        setActivePanel,
+        chatHeight,
+        setChatHeight
     };
 
     return (

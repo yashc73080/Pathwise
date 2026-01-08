@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/authContext';
 import { useTrip } from '../context/TripContext';
 import { getUserTrips, deleteTrip } from '../firebase/firestore';
+import { doSignOut } from '../firebase/auth';
 import toast from 'react-hot-toast';
 
 export default function SavedTripsModal() {
@@ -67,6 +68,16 @@ export default function SavedTripsModal() {
         window.open(googleMapsUrl, '_blank');
     };
 
+    const handleLogout = async () => {
+        try {
+            await doSignOut();
+            toast.success('Logged out successfully');
+            closeSavedTripsModal();
+        } catch (error) {
+            toast.error('Error logging out');
+        }
+    };
+
     if (!isSavedTripsModalOpen) return null;
 
     return (
@@ -74,14 +85,25 @@ export default function SavedTripsModal() {
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden">
                 <div className="p-6 border-b flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">Saved Trips</h2>
-                    <button
-                        onClick={closeSavedTripsModal}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleLogout}
+                            className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            Sign out
+                        </button>
+                        <button
+                            onClick={closeSavedTripsModal}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 bg-gray-50">

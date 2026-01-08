@@ -8,7 +8,7 @@ import { toast } from 'react-hot-toast';
 
 export default function ChatInterface({ selectedLocations }) {
   const { currentUser } = useAuth();
-  const { setCurrentPlace, setCurrentMarker, currentMarker, map } = useTrip();
+  const { setCurrentPlace, setCurrentMarker, currentMarker, map, setChatHeight, setActivePanel, activePanel } = useTrip();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -17,6 +17,7 @@ export default function ChatInterface({ selectedLocations }) {
   const [currentSessionId, setCurrentSessionId] = useState(null);
 
   const chatContainerRef = useRef(null);
+  const textareaRef = useRef(null);
 
   // Parse message content to extract structured place data
   const parseMessageContent = (content) => {
@@ -80,6 +81,11 @@ export default function ChatInterface({ selectedLocations }) {
       map.panTo({ lat, lng });
       map.setZoom(18);
 
+      // On mobile, minimize chat to partial height to show the map
+      if (window.innerWidth < 768 && activePanel === 'chat') {
+        setChatHeight('partial');
+      }
+
       toast.success(`Showing ${place.name} on map`);
     };
 
@@ -127,6 +133,15 @@ export default function ChatInterface({ selectedLocations }) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 120);
+      textareaRef.current.style.height = `${newHeight}px`;
+    }
+  }, [input]);
 
   // Auto-load most recent session on mount
   useEffect(() => {
@@ -281,6 +296,13 @@ export default function ChatInterface({ selectedLocations }) {
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
   if (showHistory) {
     return (
       <div className="flex flex-col h-full bg-white">
@@ -328,11 +350,22 @@ export default function ChatInterface({ selectedLocations }) {
   return (
     <div className="flex flex-col h-full relative">
       {/* Toolbar */}
-      <div className="absolute top-2 right-4 z-10">
+      <div className="absolute top-2 right-4 z-10 flex gap-1">
+        <button
+          onClick={startNewChat}
+          className="text-gray-400 hover:text-blue-600 p-1.5 bg-white/80 rounded-full shadow-sm backdrop-blur-sm transition-colors"
+          title="New chat"
+          aria-label="Start new chat"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
         <button
           onClick={() => setShowHistory(true)}
-          className="text-gray-400 hover:text-blue-600 p-1 bg-white/80 rounded-full shadow-sm backdrop-blur-sm"
-          title="History"
+          className="text-gray-400 hover:text-blue-600 p-1.5 bg-white/80 rounded-full shadow-sm backdrop-blur-sm transition-colors"
+          title="Chat history"
+          aria-label="View chat history"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -391,34 +424,41 @@ export default function ChatInterface({ selectedLocations }) {
         })}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 text-gray-500 rounded-lg px-4 py-2 text-sm">
-              Thinking...
+            <div className="bg-gray-100 text-gray-500 rounded-lg px-4 py-2 text-sm flex items-center gap-2">
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
           </div>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2 p-2 border-t bg-white">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask a question..."
-          className="flex-1 p-2 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          disabled={isLoading}
-        />
-        <button
-          type="submit"
-          disabled={isLoading || !input.trim()}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${isLoading || !input.trim()
-            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-          </svg>
-        </button>
+      <form onSubmit={handleSubmit} className="p-3 border-t bg-white">
+        <div className="flex gap-2 items-end">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask a question..."
+            className="flex-1 p-3 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none min-h-[44px] max-h-[120px] overflow-y-auto"
+            disabled={isLoading}
+            rows={1}
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className={`p-3 rounded-lg font-medium transition-colors shrink-0 ${isLoading || !input.trim()
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-1.5 text-center">Press Enter to send, Shift+Enter for newline</p>
       </form>
     </div>
   );

@@ -57,7 +57,7 @@ export default function ProfileMenu() {
     };
 
     return (
-        <div className="absolute top-4 right-4 z-20" ref={menuRef}>
+        <div className="absolute top-4 right-4 md:top-4 md:right-4 z-20 hidden md:block" ref={menuRef}>
             <button
                 onClick={handleProfileClick}
                 className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-md hover:shadow-lg transition-shadow focus:outline-none ring-2 ring-transparent focus:ring-blue-500 overflow-hidden"

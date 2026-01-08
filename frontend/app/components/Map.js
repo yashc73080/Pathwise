@@ -49,6 +49,7 @@ export default function Map() {
                             address: place.formatted_address,
                             lat: place.geometry.location.lat(),
                             lng: place.geometry.location.lng(),
+                            placeId: e.placeId
                         };
 
                         setCurrentPlace(placeData);
@@ -66,78 +67,8 @@ export default function Map() {
 
                         setCurrentMarker(newMarker);
 
-                        // Create InfoWindow Content with DOM API to avoid global window issues
-                        const contentDiv = document.createElement('div');
-                        contentDiv.style.minWidth = '200px';
-
-                        // Clickable info section
-                        const infoSection = document.createElement('div');
-                        infoSection.style.padding = '12px';
-                        infoSection.style.cursor = 'pointer';
-                        infoSection.style.borderBottom = '1px solid #e5e7eb';
-                        infoSection.onclick = () => {
-                            const url = e.placeId
-                                ? `https://www.google.com/maps/place/?q=place_id:${e.placeId}`
-                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' ' + place.formatted_address)}`;
-                            window.open(url, '_blank');
-                        };
-
-                        const title = document.createElement('h3');
-                        title.textContent = place.name;
-                        title.style.margin = '0 0 4px 0';
-                        title.style.color = '#1f2937';
-                        title.style.fontSize = '16px';
-                        title.style.fontWeight = '600';
-                        infoSection.appendChild(title);
-
-                        const address = document.createElement('p');
-                        address.textContent = place.formatted_address;
-                        address.style.margin = '0';
-                        address.style.color = '#6b7280';
-                        address.style.fontSize = '13px';
-                        infoSection.appendChild(address);
-
-                        const hint = document.createElement('p');
-                        hint.textContent = 'Click for more info →';
-                        hint.style.margin = '6px 0 0 0';
-                        hint.style.color = '#3b82f6';
-                        hint.style.fontSize = '12px';
-                        infoSection.appendChild(hint);
-
-                        contentDiv.appendChild(infoSection);
-
-                        // Button section
-                        const btnSection = document.createElement('div');
-                        btnSection.style.padding = '12px';
-
-                        const btn = document.createElement('button');
-                        btn.textContent = 'Add to Itinerary';
-                        btn.style.width = '100%';
-                        btn.style.backgroundColor = '#2563eb';
-                        btn.style.color = 'white';
-                        btn.style.padding = '8px 12px';
-                        btn.style.border = 'none';
-                        btn.style.borderRadius = '6px';
-                        btn.style.fontWeight = '500';
-                        btn.style.cursor = 'pointer';
-                        btn.style.transition = 'background-color 0.2s';
-
-                        btn.onmouseover = () => btn.style.backgroundColor = '#1d4ed8';
-                        btn.onmouseout = () => btn.style.backgroundColor = '#2563eb';
-
-                        btn.onclick = () => {
-                            addToItinerary(placeData, newMarker);
-                            infoWindow.close();
-                        };
-
-                        btnSection.appendChild(btn);
-                        contentDiv.appendChild(btnSection);
-
-                        const infoWindow = new window.google.maps.InfoWindow({
-                            content: contentDiv,
-                        });
-
-                        infoWindow.open(map, newMarker);
+                        // Pan to location for visibility
+                        map.panTo(place.geometry.location);
                     }
                 });
             }

@@ -6,6 +6,9 @@ import os
 from christofides import tsp
 from agent import get_chat_response
 import json
+import firebase_admin
+from firebase_admin import credentials, firestore, auth
+from session_service import FirestoreSessionService, InMemorySessionService
 
 # Load environment variables from backend/.env.local
 env_path = os.path.join(os.path.dirname(__file__), '.env.local')
@@ -17,6 +20,28 @@ if not GOOGLE_MAPS_API_KEY:
     raise ValueError("Google Maps API key not found in .env.local file")
 
 gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
+
+# Initialize Firebase Admin SDK
+# Use service account credentials from GOOGLE_APPLICATION_CREDENTIALS
+try:
+    if not firebase_admin._apps:
+        creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+        if creds_path:
+            cred = credentials.Certificate(creds_path.strip())
+            print(f"INFO: Using Firebase service account from {creds_path}")
+        else:
+            cred = credentials.ApplicationDefault()
+            print("INFO: Using Application Default Credentials")
+        firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    session_service = FirestoreSessionService(db)
+    print("INFO: FirestoreSessionService initialized successfully")
+except Exception as e:
+    print(f"Warning: Firebase Admin init failed: {e}. Using InMemorySessionService.")
+    db = None
+    session_service = InMemorySessionService()
+
+
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["https://tripwhiz.onrender.com", "http://localhost:3000"]}})  # Enable CORS for all routes
@@ -195,14 +220,90 @@ def chat():
         messages.insert(0, system_message)
         
         # Generator for streaming response using Vertex AI agent
-        def generate():
-            for chunk in get_chat_response(messages, gmaps):
-                yield chunk
         
+        # Capture request context needed for the generator
+        auth_header = request.headers.get('Authorization')
+        chat_id_arg = request.args.get('chatId')
+        locations_arg = request.args.get('locations')
+        
+        # Pre-verify user if auth header exists
+        user_id = None
+        if auth_header and auth_header.startswith("Bearer "):
+            try:
+                token = auth_header.split("Bearer ")[1]
+                decoded_token = auth.verify_id_token(token)
+                user_id = decoded_token['uid']
+                print(f"DEBUG: User authenticated: {user_id}")
+            except Exception as auth_error:
+                print(f"DEBUG: Auth verification failed: {auth_error}")
+
+        # Generator for streaming response using Vertex AI agent
+        def generate():
+            full_response = ""
+            for chunk in get_chat_response(messages, gmaps):
+                full_response += chunk
+                yield chunk
+            
+            # Save the conversation using session_service
+            if user_id and chat_id_arg:
+                try:
+                    print(f"DEBUG: Saving to session {chat_id_arg} for user {user_id}")
+                    
+                    # Save user message (last message before system was inserted)
+                    user_content = messages[-1]['content']
+                    session_service.add_message(user_id, chat_id_arg, 'user', user_content)
+                    
+                    # Save assistant response
+                    session_service.add_message(user_id, chat_id_arg, 'assistant', full_response)
+                    
+                    # Update session metadata
+                    session_service.update_session(user_id, chat_id_arg, {
+                        'locations': locations_arg,
+                        'lastMessage': full_response[:200]
+                    })
+                    
+                    print("DEBUG: Chat saved successfully via session_service")
+                except Exception as save_error:
+                    print(f"Error saving chat: {save_error}")
+            else:
+                print(f"DEBUG: Skipping save. user_id={user_id}, chat_id={chat_id_arg}")
+
         return Response(generate(), mimetype='text/event-stream')
     
     except Exception as e:
         print(f"Chat error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/chat/sessions', methods=['GET'])
+def get_chat_sessions():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        token = auth_header.split("Bearer ")[1]
+        decoded_token = auth.verify_id_token(token)
+        user_id = decoded_token['uid']
+        
+        sessions = session_service.list_sessions(user_id)
+        return jsonify({"sessions": sessions})
+    except Exception as e:
+         return jsonify({"error": str(e)}), 500
+
+@app.route('/chat/sessions/<chat_id>/messages', methods=['GET'])
+def get_chat_messages(chat_id):
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Unauthorized"}), 401
+        
+    try:
+        token = auth_header.split("Bearer ")[1]
+        decoded_token = auth.verify_id_token(token)
+        user_id = decoded_token['uid']
+        
+        messages = session_service.get_messages(user_id, chat_id)
+        return jsonify({"messages": messages})
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 def get_travel_distance(origin, destination):

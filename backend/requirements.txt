@@ -6,4 +6,5 @@ requests
 gunicorn
 networkx
 google-cloud-aiplatform
+firebase-admin
 # psycopg2

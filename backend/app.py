@@ -45,7 +45,9 @@ except Exception as e:
 
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["https://tripwhiz.onrender.com", "http://localhost:3000"]}})  # Enable CORS for all routes
+# Allow all origins in development for mobile testing on local network
+# In production, you should restrict to specific domains
+CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
 
 @app.route('/')
 def home():
@@ -358,4 +360,4 @@ def generate_trip_name_endpoint():
         return jsonify({"name": "My Trip"})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', debug=True, port=5000)

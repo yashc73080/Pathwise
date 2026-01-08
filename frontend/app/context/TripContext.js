@@ -24,6 +24,9 @@ export function TripProvider({ children }) {
     const [activePanel, setActivePanel] = useState('none');
     // Chat height for mobile: 'minimized' | 'partial' | 'full'
     const [chatHeight, setChatHeight] = useState('full');
+    // Sidebar and Route panel heights for mobile: 'partial' | 'full'
+    const [sidebarHeight, setSidebarHeight] = useState('full');
+    const [routeHeight, setRouteHeight] = useState('full');
 
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -304,6 +307,7 @@ export function TripProvider({ children }) {
 
         return optimizedRoute.map(index => ({
             name: selectedLocations[index].name,
+            address: selectedLocations[index].address || '',
             lat: selectedLocations[index].lat,
             lng: selectedLocations[index].lng
         }));
@@ -316,14 +320,27 @@ export function TripProvider({ children }) {
         }
 
         const baseUrl = "https://www.google.com/maps/dir/";
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+        // On mobile, include address for more accurate results
+        // On web, just use name (it works better with Google's search)
         const waypoints = optimizedCoords
-            .map(loc => `${loc.lat},${loc.lng}`)
+            .map(loc => {
+                if (isMobile && loc.address) {
+                    return encodeURIComponent(`${loc.name}, ${loc.address}`);
+                }
+                return encodeURIComponent(loc.name);
+            })
             .join('/');
 
         const googleMapsUrl = `${baseUrl}${waypoints}`;
 
-        window.open(googleMapsUrl, '_blank');
+        // On mobile, use direct navigation to avoid blank intermediate page
+        if (isMobile) {
+            window.location.href = googleMapsUrl;
+        } else {
+            window.open(googleMapsUrl, '_blank');
+        }
         toast.success("Opening in Google Maps!");
     };
 
@@ -413,7 +430,11 @@ export function TripProvider({ children }) {
         activePanel,
         setActivePanel,
         chatHeight,
-        setChatHeight
+        setChatHeight,
+        sidebarHeight,
+        setSidebarHeight,
+        routeHeight,
+        setRouteHeight
     };
 
     return (

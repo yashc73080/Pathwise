@@ -25,7 +25,9 @@ export default function Sidebar() {
         setActivePanel,
         optimizedRoute,
         optimizedCoords,
-        exportToGoogleMaps
+        exportToGoogleMaps,
+        sidebarHeight,
+        setSidebarHeight
     } = useTrip();
 
     const { userLoggedIn, currentUser, openLoginModal } = useAuth();
@@ -113,18 +115,24 @@ export default function Sidebar() {
                 </button>
             )}
 
-            {/* Mobile: Bottom sheet panel (unchanged) */}
+            {/* Mobile: Bottom sheet panel with draggable height */}
             <div
                 className={`
                     md:hidden fixed z-40 bg-white shadow-xl flex flex-col
-                    inset-x-0 bottom-0 h-[70vh] rounded-t-2xl
-                    transition-transform duration-300 ease-in-out
+                    inset-x-0 bottom-0 rounded-t-2xl
+                    transition-all duration-300 ease-in-out
                     ${isMobileVisible ? 'translate-y-0' : 'translate-y-full'}
+                    ${sidebarHeight === 'full' ? 'h-[70vh]' : 'h-[40vh]'}
                 `}
                 style={{ paddingBottom: '4rem' }}
             >
-                <div className="flex justify-center pt-2 pb-1">
-                    <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
+                {/* Tap to toggle height */}
+                <div
+                    className="flex justify-center pt-3 pb-2 cursor-pointer"
+                    onClick={() => setSidebarHeight(sidebarHeight === 'full' ? 'partial' : 'full')}
+                    onTouchEnd={(e) => { e.preventDefault(); setSidebarHeight(sidebarHeight === 'full' ? 'partial' : 'full'); }}
+                >
+                    <div className="w-12 h-1.5 bg-gray-300 rounded-full active:bg-gray-400 transition-colors"></div>
                 </div>
 
                 <div className="p-4 border-b flex justify-between items-center">
@@ -193,8 +201,8 @@ export default function Sidebar() {
                         <button
                             onClick={() => setDesktopTab('itinerary')}
                             className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all ${desktopTab === 'itinerary'
-                                    ? 'bg-white text-gray-900 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             Itinerary
@@ -203,10 +211,10 @@ export default function Sidebar() {
                             onClick={() => setDesktopTab('route')}
                             disabled={!optimizedRoute}
                             className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${desktopTab === 'route'
-                                    ? 'bg-white text-gray-900 shadow-sm'
-                                    : optimizedRoute
-                                        ? 'text-gray-600 hover:text-gray-900'
-                                        : 'text-gray-400 cursor-not-allowed'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : optimizedRoute
+                                    ? 'text-gray-600 hover:text-gray-900'
+                                    : 'text-gray-400 cursor-not-allowed'
                                 }`}
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -369,8 +377,8 @@ function LocationList({ selectedLocations, handleDragEnd, startIndex, endIndex, 
                                                     <button
                                                         onClick={() => setStartLocation(index)}
                                                         className={`px-2 py-1.5 text-xs rounded-lg transition-all ${startIndex === index
-                                                                ? 'bg-green-600 text-white'
-                                                                : 'bg-gray-100 text-gray-600 hover:bg-green-100'
+                                                            ? 'bg-green-600 text-white'
+                                                            : 'bg-gray-100 text-gray-600 hover:bg-green-100'
                                                             }`}
                                                         title="Set as start"
                                                     >
@@ -379,8 +387,8 @@ function LocationList({ selectedLocations, handleDragEnd, startIndex, endIndex, 
                                                     <button
                                                         onClick={() => setEndLocation(index)}
                                                         className={`px-2 py-1.5 text-xs rounded-lg transition-all ${endIndex === index
-                                                                ? 'bg-red-600 text-white'
-                                                                : 'bg-gray-100 text-gray-600 hover:bg-red-100'
+                                                            ? 'bg-red-600 text-white'
+                                                            : 'bg-gray-100 text-gray-600 hover:bg-red-100'
                                                             }`}
                                                         title="Set as end"
                                                     >

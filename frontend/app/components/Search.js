@@ -21,7 +21,7 @@ export default function Search() {
 
     const handleCurrentLocation = () => {
         if (!navigator.geolocation) {
-            toast.error('Geolocation is not supported');
+            toast.error('Geolocation is not supported by your browser');
             return;
         }
 
@@ -54,10 +54,25 @@ export default function Search() {
                 }
                 setIsLocating(false);
             },
-            () => {
-                toast.error('Unable to retrieve your location');
+            (error) => {
                 setIsLocating(false);
-            }
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        toast.error('Location access denied. Please enable location permissions.');
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        toast.error('Location unavailable. Try again later.');
+                        break;
+                    case error.TIMEOUT:
+                        toast.error('Location request timed out. Try again.');
+                        break;
+                    default:
+                        // HTTPS is required for geolocation on mobile
+                        toast.error('Location access requires HTTPS connection.');
+                        break;
+                }
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
         );
     };
 
@@ -139,10 +154,18 @@ export default function Search() {
 
     const handleOpenGoogleMaps = () => {
         if (!currentPlace) return;
-        const url = currentPlace.placeId
+        // Use place_id on desktop (better UX), search query on mobile (app compatibility)
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const url = currentPlace.placeId && !isMobile
             ? `https://www.google.com/maps/place/?q=place_id:${currentPlace.placeId}`
             : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentPlace.name + ' ' + (currentPlace.address || ''))}`;
-        window.open(url, '_blank');
+
+        // On mobile, use direct navigation to avoid blank intermediate page
+        if (isMobile) {
+            window.location.href = url;
+        } else {
+            window.open(url, '_blank');
+        }
     };
 
     return (
@@ -185,8 +208,8 @@ export default function Search() {
                     onClick={addToItinerary}
                     disabled={!currentPlace}
                     className={`p-2.5 rounded-lg transition-all duration-200 ${currentPlace
-                            ? 'text-blue-600 hover:bg-blue-50'
-                            : 'text-gray-300 cursor-not-allowed'
+                        ? 'text-blue-600 hover:bg-blue-50'
+                        : 'text-gray-300 cursor-not-allowed'
                         }`}
                     title="Add to itinerary"
                     aria-label="Add location to itinerary"

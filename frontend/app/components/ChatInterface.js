@@ -90,11 +90,19 @@ export default function ChatInterface({ selectedLocations }) {
     };
 
     const handleOpenDetails = () => {
-      // Open Google Maps with place details in a new tab
-      const url = place.place_id
+      // Open Google Maps with place details
+      // Use place_id on desktop (better UX), search query on mobile (app compatibility)
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const url = place.place_id && !isMobile
         ? `https://www.google.com/maps/place/?q=place_id:${place.place_id}`
         : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' ' + (place.address || ''))}`;
-      window.open(url, '_blank');
+
+      // On mobile, use direct navigation to avoid blank intermediate page
+      if (isMobile) {
+        window.location.href = url;
+      } else {
+        window.open(url, '_blank');
+      }
     };
 
     return (
@@ -115,9 +123,9 @@ export default function ChatInterface({ selectedLocations }) {
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); handleShowOnMap(); }}
-            className="ml-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1 shrink-0"
+            className="ml-2 px-4 py-2.5 md:px-3 md:py-1.5 bg-blue-600 text-white text-sm md:text-xs font-medium rounded-lg md:rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1.5 md:gap-1 shrink-0"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>

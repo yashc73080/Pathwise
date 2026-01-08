@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { addTrip, updateTripName } from '../firebase/firestore';
 
 export default function RoutePanel() {
-    const { optimizedRoute, selectedLocations, optimizedCoords, exportToGoogleMaps, startIndex, endIndex, activePanel, setActivePanel } = useTrip();
+    const { optimizedRoute, selectedLocations, optimizedCoords, exportToGoogleMaps, startIndex, endIndex, activePanel, setActivePanel, routeHeight, setRouteHeight } = useTrip();
     const { userLoggedIn, currentUser, openLoginModal } = useAuth();
     const [isSaving, setIsSaving] = useState(false);
 
@@ -100,19 +100,24 @@ export default function RoutePanel() {
 
     return (
         <>
-            {/* Mobile only: Bottom sheet panel - Desktop uses Sidebar tabs */}
+            {/* Mobile only: Bottom sheet panel with draggable height */}
             <div
                 className={`
                     md:hidden fixed z-40 bg-white shadow-xl flex flex-col
-                    inset-x-0 bottom-0 max-h-[60vh] rounded-t-2xl
-                    transition-transform duration-300 ease-in-out
+                    inset-x-0 bottom-0 rounded-t-2xl
+                    transition-all duration-300 ease-in-out
                     ${isMobileVisible ? 'translate-y-0' : 'translate-y-full'}
+                    ${routeHeight === 'full' ? 'h-[60vh]' : 'h-[35vh]'}
                 `}
                 style={{ paddingBottom: '4rem' }}
             >
-                {/* Handle indicator */}
-                <div className="flex justify-center pt-2 pb-1">
-                    <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
+                {/* Tap to toggle height */}
+                <div
+                    className="flex justify-center pt-3 pb-2 cursor-pointer"
+                    onClick={() => setRouteHeight(routeHeight === 'full' ? 'partial' : 'full')}
+                    onTouchEnd={(e) => { e.preventDefault(); setRouteHeight(routeHeight === 'full' ? 'partial' : 'full'); }}
+                >
+                    <div className="w-12 h-1.5 bg-gray-300 rounded-full active:bg-gray-400 transition-colors"></div>
                 </div>
 
                 <div className="p-4 border-b flex justify-between items-center">

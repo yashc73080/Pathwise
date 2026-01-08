@@ -22,6 +22,6 @@
 - [ ] AI-generated names for saved trips
 
 ## Phase 4: Mobile & Capacitor
-- [ ] Responsive Design: Optimize Sidebar/Map layout for mobile screens
+- [x] Responsive Design: Optimize Sidebar/Map layout for mobile screens
 - [ ] Initialize Capacitor project (iOS/Android)
-- [ ] Evaluate Map Strategy: Implement conditional rendering for `@capacitor/google-maps` (Native) vs Google Maps JS API (Web)
+<!-- - [ ] Evaluate Map Strategy: Implement conditional rendering for `@capacitor/google-maps` (Native) vs Google Maps JS API (Web) -->

@@ -105,6 +105,10 @@ def get_chat_response(messages: List[Dict[str, str]], gmaps_client: googlemaps.C
             # Execute tool
             results = search_places(query, gmaps_client=gmaps_client)
             
+            # Yield structured place data for frontend to parse
+            if results:
+                yield f"<!--PLACES_DATA:{json.dumps(results)}:PLACES_DATA-->"
+            
             # Send result back to model
             function_response = Part.from_function_response(
                 name="search_places",

@@ -17,8 +17,8 @@
 - [x] specific: Switch backend AI provider to Google Vertex AI
 - [x] Implement Function Calling (Tool Use) in backend to return structured JSON
 - [x] Ensure AI tool calls return valid Google Maps Place IDs
-- [ ] Update `ChatInterface.js` to render "Location Cards" from structured AI responses
-- [ ] Add "Add to Map" button on AI Location Cards
+- [x] Update `ChatInterface.js` to render "Location Cards" from structured AI responses
+- [x] Add "Add to Map" button on AI Location Cards
 
 ## Phase 4: Mobile & Capacitor
 - [ ] Responsive Design: Optimize Sidebar/Map layout for mobile screens

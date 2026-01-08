@@ -3,10 +3,12 @@
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../context/authContext';
+import { useTrip } from '../context/TripContext';
 import { toast } from 'react-hot-toast';
 
 export default function ChatInterface({ selectedLocations }) {
   const { currentUser } = useAuth();
+  const { setCurrentPlace, setCurrentMarker, currentMarker, map } = useTrip();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -15,6 +17,99 @@ export default function ChatInterface({ selectedLocations }) {
   const [currentSessionId, setCurrentSessionId] = useState(null);
 
   const chatContainerRef = useRef(null);
+
+  // Parse message content to extract structured place data
+  const parseMessageContent = (content) => {
+    const placesMatch = content.match(/<!--PLACES_DATA:(.*?):PLACES_DATA-->/);
+    let places = null;
+    let textContent = content;
+
+    if (placesMatch) {
+      try {
+        places = JSON.parse(placesMatch[1]);
+        textContent = content.replace(/<!--PLACES_DATA:.*?:PLACES_DATA-->/g, '').trim();
+      } catch (e) {
+        console.error('Error parsing places data:', e);
+      }
+    }
+
+    return { places, textContent };
+  };
+
+  // Location Card component
+  const LocationCard = ({ place }) => {
+    const handleShowOnMap = () => {
+      if (!map) {
+        toast.error('Map not ready');
+        return;
+      }
+
+      const lat = place.location?.lat;
+      const lng = place.location?.lng;
+
+      if (!lat || !lng) {
+        toast.error('Location coordinates not available');
+        return;
+      }
+
+      // Clear any existing preview marker
+      if (currentMarker) {
+        currentMarker.setMap(null);
+      }
+
+      // Set the current place for the sidebar/popup
+      setCurrentPlace({
+        name: place.name,
+        address: place.address,
+        lat: lat,
+        lng: lng,
+        placeId: place.place_id
+      });
+
+      // Create a red preview marker
+      const marker = new window.google.maps.Marker({
+        map: map,
+        position: { lat, lng },
+        title: place.name,
+        animation: window.google.maps.Animation.DROP
+      });
+
+      setCurrentMarker(marker);
+
+      // Pan to the location
+      map.panTo({ lat, lng });
+      map.setZoom(18);
+
+      toast.success(`Showing ${place.name} on map`);
+    };
+
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-3 mb-2 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex justify-between items-start">
+          <div className="flex-1 min-w-0">
+            <h4 className="font-medium text-gray-900 text-sm truncate">{place.name}</h4>
+            <p className="text-xs text-gray-500 truncate mt-0.5">{place.address}</p>
+            {place.rating && (
+              <div className="flex items-center mt-1">
+                <span className="text-yellow-500 text-xs">★</span>
+                <span className="text-xs text-gray-600 ml-1">{place.rating}</span>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleShowOnMap}
+            className="ml-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1 shrink-0"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Show
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -244,24 +339,45 @@ export default function ChatInterface({ selectedLocations }) {
             <p className="mt-2 text-xs">Ask for recommendations, routes, or local tips.</p>
           </div>
         )}
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}
-          >
+        {messages.map((message, index) => {
+          const isAssistant = message.role === 'assistant';
+          const { places, textContent } = isAssistant
+            ? parseMessageContent(message.content)
+            : { places: null, textContent: message.content };
+
+          return (
             <div
-              className={`max-w-[85%] rounded-lg px-4 py-2 shadow-sm ${message.role === 'user'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-800'
-                }`}
+              key={index}
+              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <ReactMarkdown className="text-sm prose prose-sm max-w-none">
-                {message.content}
-              </ReactMarkdown>
+              <div className="max-w-[85%]">
+                {/* Render Location Cards if places exist */}
+                {isAssistant && places && places.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-gray-500 mb-2 font-medium">Suggested Locations:</p>
+                    {places.map((place, placeIndex) => (
+                      <LocationCard key={placeIndex} place={place} />
+                    ))}
+                  </div>
+                )}
+
+                {/* Render text content */}
+                {textContent && (
+                  <div
+                    className={`rounded-lg px-4 py-2 shadow-sm ${message.role === 'user'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-800'
+                      }`}
+                  >
+                    <ReactMarkdown className="text-sm prose prose-sm max-w-none">
+                      {textContent}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {isLoading && (
           <div className="flex justify-start">
             <div className="bg-gray-100 text-gray-500 rounded-lg px-4 py-2 text-sm">

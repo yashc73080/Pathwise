@@ -4,18 +4,12 @@ import googlemaps
 from dotenv import load_dotenv
 import os
 from christofides import tsp
-from openai import OpenAI
+from agent import get_chat_response
 import json
 
 # Load environment variables from backend/.env.local
 env_path = os.path.join(os.path.dirname(__file__), '.env.local')
 load_dotenv(env_path)
-
-# Initialize OpenAI client
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv('OPENROUTER_API_KEY')
-)
 
 # Initialize the Google Maps client with your API key
 GOOGLE_MAPS_API_KEY = os.getenv('NEXT_PUBLIC_GOOGLE_MAPS_API_KEY')
@@ -200,17 +194,10 @@ def chat():
         # Add system message at the beginning
         messages.insert(0, system_message)
         
-        # Create chat completion with new API format
-        response = client.chat.completions.create(
-            model="meta-llama/llama-3.3-70b-instruct:free",
-            messages=messages,
-            stream=True
-        )
-        
+        # Generator for streaming response using Vertex AI agent
         def generate():
-            for chunk in response:
-                if chunk.choices[0].delta.content is not None:
-                    yield chunk.choices[0].delta.content
+            for chunk in get_chat_response(messages, gmaps):
+                yield chunk
         
         return Response(generate(), mimetype='text/event-stream')
     

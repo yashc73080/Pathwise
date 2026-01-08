@@ -20,17 +20,3 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Google Maps InfoWindow custom styles */
-.gm-style-iw-ch {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  height: 1px !important;
-}
-
-.gm-style-iw-chr {
-  height: 1px !important;
-}
-
-.gm-ui-hover-effect {
-  height: 1px !important;
-}

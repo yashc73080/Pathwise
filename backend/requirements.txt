@@ -5,5 +5,5 @@ googlemaps
 requests
 gunicorn
 networkx
-openai
+google-cloud-aiplatform
 # psycopg2

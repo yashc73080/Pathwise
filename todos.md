@@ -14,9 +14,9 @@
 - [x] Create Firebase 'itineraries' table to save/load user trips
 
 ## Phase 3: AI Agent Upgrade
-- [ ] specific: Switch backend AI provider to Google Vertex AI
-- [ ] Implement Function Calling (Tool Use) in backend to return structured JSON
-- [ ] Ensure AI tool calls return valid Google Maps Place IDs
+- [x] specific: Switch backend AI provider to Google Vertex AI
+- [x] Implement Function Calling (Tool Use) in backend to return structured JSON
+- [x] Ensure AI tool calls return valid Google Maps Place IDs
 - [ ] Update `ChatInterface.js` to render "Location Cards" from structured AI responses
 - [ ] Add "Add to Map" button on AI Location Cards
 

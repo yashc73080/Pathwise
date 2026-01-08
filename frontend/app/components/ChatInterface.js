@@ -22,6 +22,34 @@ export default function ChatInterface({ selectedLocations }) {
     }
   }, [messages]);
 
+  // Auto-load most recent session on mount
+  useEffect(() => {
+    if (currentUser && !currentSessionId) {
+      loadMostRecentSession();
+    }
+  }, [currentUser]);
+
+  const loadMostRecentSession = async () => {
+    try {
+      const token = await currentUser.getIdToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/chat/sessions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.sessions && data.sessions.length > 0) {
+          // Load the most recent session
+          const mostRecent = data.sessions[0];
+          await loadSession(mostRecent.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading recent session:', error);
+    }
+  };
+
   // Fetch chat history sessions
   useEffect(() => {
     if (showHistory && currentUser) {

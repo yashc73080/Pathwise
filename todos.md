@@ -19,6 +19,7 @@
 - [x] Ensure AI tool calls return valid Google Maps Place IDs
 - [x] Update `ChatInterface.js` to render "Location Cards" from structured AI responses
 - [x] Add "Add to Map" button on AI Location Cards
+- [ ] AI-generated names for saved trips
 
 ## Phase 4: Mobile & Capacitor
 - [ ] Responsive Design: Optimize Sidebar/Map layout for mobile screens

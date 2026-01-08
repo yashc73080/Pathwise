@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, orderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, deleteDoc, doc, orderBy, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 // Add a new trip
 export const addTrip = async (userId, tripData) => {
@@ -43,6 +43,16 @@ export const deleteTrip = async (tripId) => {
         await deleteDoc(doc(db, 'itineraries', tripId));
     } catch (error) {
         console.error("Error deleting trip: ", error);
+        throw error;
+    }
+};
+
+// Update a trip's name
+export const updateTripName = async (tripId, name) => {
+    try {
+        await updateDoc(doc(db, 'itineraries', tripId), { name });
+    } catch (error) {
+        console.error("Error updating trip name: ", error);
         throw error;
     }
 };

@@ -107,7 +107,7 @@ export default function SavedTripsModal() {
                                 >
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
-                                            <h3 className="font-semibold text-gray-900 text-lg">Trip {trips.length - index}</h3>
+                                            <h3 className="font-semibold text-gray-900 text-lg">{trip.name || `Trip ${trips.length - index}`}</h3>
                                             <p className="text-xs text-gray-500">
                                                 {trip.createdAt?.seconds ? new Date(trip.createdAt.seconds * 1000).toLocaleDateString() : 'Just now'}
                                             </p>

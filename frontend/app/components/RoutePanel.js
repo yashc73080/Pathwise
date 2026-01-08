@@ -4,7 +4,7 @@ import { useTrip } from '../context/TripContext';
 import { useAuth } from '../context/authContext';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { addTrip } from '../firebase/firestore';
+import { addTrip, updateTripName } from '../firebase/firestore';
 
 export default function RoutePanel() {
     const { optimizedRoute, selectedLocations, optimizedCoords, exportToGoogleMaps, startIndex, endIndex } = useTrip();
@@ -28,10 +28,9 @@ export default function RoutePanel() {
 
         setIsSaving(true);
         try {
-            // Prepare trip data
-            // We need to save the raw locations array + indices + optimized route array
-            // to reconstruct the state exactly
+            // Prepare trip data with null name (AI will generate it in background)
             const tripData = {
+                name: null,
                 locations: selectedLocations.map(loc => ({
                     name: loc.name,
                     lat: loc.lat,
@@ -43,8 +42,23 @@ export default function RoutePanel() {
                 endIndex
             };
 
-            await addTrip(currentUser.uid, tripData);
+            const tripId = await addTrip(currentUser.uid, tripData);
             toast.success('Trip saved successfully!');
+
+            // Generate AI name in background (non-blocking)
+            fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/generate-trip-name`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ locations: tripData.locations })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.name && data.name !== 'My Trip') {
+                        updateTripName(tripId, data.name);
+                    }
+                })
+                .catch(err => console.error('Background name generation failed:', err));
+
         } catch (error) {
             toast.error('Failed to save trip');
         } finally {

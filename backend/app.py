@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 from christofides import tsp
 from agent import get_chat_response
+from trip_naming import generate_trip_name
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -324,6 +325,37 @@ def get_travel_distance(origin, destination):
     except Exception as e:
         print(f"Error in get_travel_distance: {str(e)}")
         return 0
+
+@app.route('/generate-trip-name', methods=['POST'])
+def generate_trip_name_endpoint():
+    """
+    Generate an AI-powered short name for a trip based on its locations.
+    
+    Expected input:
+    {
+        "locations": [
+            {"name": "Empire State Building", "address": "NYC"},
+            {"name": "Central Park", "address": "NYC"}
+        ]
+    }
+    
+    Returns:
+    {
+        "name": "Manhattan Landmarks"
+    }
+    """
+    try:
+        data = request.json
+        locations = data.get('locations', [])
+        
+        if not locations:
+            return jsonify({"name": "My Trip"})
+        
+        name = generate_trip_name(locations)
+        return jsonify({"name": name})
+    except Exception as e:
+        print(f"Error generating trip name: {e}")
+        return jsonify({"name": "My Trip"})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

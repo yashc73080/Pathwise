@@ -100,7 +100,7 @@ export default function RoutePanel() {
 
     return (
         <>
-            {/* Mobile: Bottom sheet panel */}
+            {/* Mobile only: Bottom sheet panel - Desktop uses Sidebar tabs */}
             <div
                 className={`
                     md:hidden fixed z-40 bg-white shadow-xl flex flex-col
@@ -163,45 +163,7 @@ export default function RoutePanel() {
                     {optimizedRoute ? <RouteList /> : <EmptyState />}
                 </div>
             </div>
-
-            {/* Desktop: Floating right panel */}
-            {optimizedRoute && (
-                <div className="hidden md:block absolute top-20 right-4 w-80 bg-white rounded-lg shadow-lg z-10">
-                    <div className="p-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="font-semibold text-gray-900">Optimized Route</h3>
-                            <div className="flex gap-1">
-                                <button
-                                    onClick={handleSaveTrip}
-                                    disabled={isSaving}
-                                    className={`p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200 ${isSaving ? 'opacity-75 cursor-not-allowed' : ''}`}
-                                    title="Save Trip"
-                                    aria-label="Save trip"
-                                >
-                                    {isSaving ? (
-                                        <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-                                    ) : (
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                                        </svg>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={exportToGoogleMaps}
-                                    className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
-                                    title="Export to Google Maps"
-                                    aria-label="Export to Google Maps"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        <RouteList />
-                    </div>
-                </div>
-            )}
+            {/* Desktop RoutePanel removed - now integrated into Sidebar tabs */}
         </>
     );
 }

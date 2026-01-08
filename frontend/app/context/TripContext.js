@@ -284,6 +284,9 @@ export function TripProvider({ children }) {
                 routeCoordinates.forEach(coord => bounds.extend(coord));
                 map.fitBounds(bounds);
 
+                // Auto-switch to route panel on mobile
+                setActivePanel('route');
+
                 toast.success("Route optimized!");
             } else {
                 toast.error('Failed to submit itinerary.');

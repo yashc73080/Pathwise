@@ -145,10 +145,10 @@ export default function ChatWidget() {
             </div>
 
             {/* Desktop: Floating chat widget */}
-            <div className={`hidden md:flex absolute bottom-4 flex-col items-end z-10 ${optimizedRoute ? 'right-[340px]' : 'right-4'}`}>
+            <div className="hidden md:flex absolute bottom-4 right-4 flex-col items-end z-10">
                 {isChatOpen && (
                     <div className="mb-4 bg-white shadow-xl rounded-lg w-96 overflow-hidden">
-                        <div className={`${optimizedRoute ? 'h-[400px]' : 'h-[500px]'} flex flex-col`}>
+                        <div className="h-[600px] flex flex-col">
                             <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-lg">
                                 <h2 className="font-semibold text-white">Pathwise AI Assistant</h2>
                                 <button

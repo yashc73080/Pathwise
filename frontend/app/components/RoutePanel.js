@@ -63,11 +63,11 @@ export default function RoutePanel() {
                         <button
                             onClick={handleSaveTrip}
                             disabled={isSaving}
-                            className={`p-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors ${isSaving ? 'opacity-75 cursor-not-allowed' : ''}`}
+                            className={`p-2 text-green-600 hover:text-green-700 hover:bg-gray-100 rounded transition-colors ${isSaving ? 'opacity-75 cursor-not-allowed' : ''}`}
                             title="Save Trip"
                         >
                             {isSaving ? (
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
                             ) : (
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
@@ -76,7 +76,7 @@ export default function RoutePanel() {
                         </button>
                         <button
                             onClick={exportToGoogleMaps}
-                            className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                            className="p-2 text-blue-600 hover:text-blue-700 hover:bg-gray-100 rounded transition-colors"
                             title="Export to Google Maps"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

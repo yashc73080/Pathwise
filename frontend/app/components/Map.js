@@ -68,23 +68,47 @@ export default function Map() {
 
                         // Create InfoWindow Content with DOM API to avoid global window issues
                         const contentDiv = document.createElement('div');
-                        contentDiv.style.padding = '12px';
                         contentDiv.style.minWidth = '200px';
+
+                        // Clickable info section
+                        const infoSection = document.createElement('div');
+                        infoSection.style.padding = '12px';
+                        infoSection.style.cursor = 'pointer';
+                        infoSection.style.borderBottom = '1px solid #e5e7eb';
+                        infoSection.onclick = () => {
+                            const url = e.placeId
+                                ? `https://www.google.com/maps/place/?q=place_id:${e.placeId}`
+                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' ' + place.formatted_address)}`;
+                            window.open(url, '_blank');
+                        };
 
                         const title = document.createElement('h3');
                         title.textContent = place.name;
-                        title.style.margin = '0 0 8px 0';
-                        title.style.color = '#666666ff';
+                        title.style.margin = '0 0 4px 0';
+                        title.style.color = '#1f2937';
                         title.style.fontSize = '16px';
                         title.style.fontWeight = '600';
-                        contentDiv.appendChild(title);
+                        infoSection.appendChild(title);
 
                         const address = document.createElement('p');
                         address.textContent = place.formatted_address;
-                        address.style.margin = '0 0 12px 0';
-                        address.style.color = '#666';
-                        address.style.fontSize = '14px';
-                        contentDiv.appendChild(address);
+                        address.style.margin = '0';
+                        address.style.color = '#6b7280';
+                        address.style.fontSize = '13px';
+                        infoSection.appendChild(address);
+
+                        const hint = document.createElement('p');
+                        hint.textContent = 'Click for more info →';
+                        hint.style.margin = '6px 0 0 0';
+                        hint.style.color = '#3b82f6';
+                        hint.style.fontSize = '12px';
+                        infoSection.appendChild(hint);
+
+                        contentDiv.appendChild(infoSection);
+
+                        // Button section
+                        const btnSection = document.createElement('div');
+                        btnSection.style.padding = '12px';
 
                         const btn = document.createElement('button');
                         btn.textContent = 'Add to Itinerary';
@@ -106,7 +130,8 @@ export default function Map() {
                             infoWindow.close();
                         };
 
-                        contentDiv.appendChild(btn);
+                        btnSection.appendChild(btn);
+                        contentDiv.appendChild(btnSection);
 
                         const infoWindow = new window.google.maps.InfoWindow({
                             content: contentDiv,

@@ -83,8 +83,19 @@ export default function ChatInterface({ selectedLocations }) {
       toast.success(`Showing ${place.name} on map`);
     };
 
+    const handleOpenDetails = () => {
+      // Open Google Maps with place details in a new tab
+      const url = place.place_id
+        ? `https://www.google.com/maps/place/?q=place_id:${place.place_id}`
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' ' + (place.address || ''))}`;
+      window.open(url, '_blank');
+    };
+
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-3 mb-2 shadow-sm hover:shadow-md transition-shadow">
+      <div
+        onClick={handleOpenDetails}
+        className="bg-white border border-gray-200 rounded-lg p-3 mb-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      >
         <div className="flex justify-between items-start">
           <div className="flex-1 min-w-0">
             <h4 className="font-medium text-gray-900 text-sm truncate">{place.name}</h4>
@@ -97,7 +108,7 @@ export default function ChatInterface({ selectedLocations }) {
             )}
           </div>
           <button
-            onClick={handleShowOnMap}
+            onClick={(e) => { e.stopPropagation(); handleShowOnMap(); }}
             className="ml-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1 shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

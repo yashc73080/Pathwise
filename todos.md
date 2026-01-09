@@ -19,9 +19,10 @@
 - [x] Ensure AI tool calls return valid Google Maps Place IDs
 - [x] Update `ChatInterface.js` to render "Location Cards" from structured AI responses
 - [x] Add "Add to Map" button on AI Location Cards
-- [ ] AI-generated names for saved trips
+- [x] AI-generated names for saved trips
+- [x] Weather visualization button once locations are added 
 
 ## Phase 4: Mobile & Capacitor
 - [x] Responsive Design: Optimize Sidebar/Map layout for mobile screens
-- [ ] Initialize Capacitor project (iOS/Android)
+- [x] Initialize Capacitor project (iOS/Android)
 <!-- - [ ] Evaluate Map Strategy: Implement conditional rendering for `@capacitor/google-maps` (Native) vs Google Maps JS API (Web) -->

@@ -3,11 +3,17 @@
 import { useTrip } from '../context/TripContext';
 import { useAuth } from '../context/authContext';
 import { useDraggablePanel } from '../hooks/useDraggablePanel';
+import { useState } from 'react';
 import ChatInterface from './ChatInterface';
 
 export default function ChatWidget() {
     const { isChatOpen, setIsChatOpen, selectedLocations, activePanel, setActivePanel, chatHeight, setChatHeight, optimizedRoute } = useTrip();
     const { userLoggedIn, openLoginModal } = useAuth();
+
+    // State for controlling ChatInterface history view from mobile header
+    const [mobileShowHistory, setMobileShowHistory] = useState(false);
+    // Trigger to start new chat (increment to trigger)
+    const [newChatTrigger, setNewChatTrigger] = useState(0);
 
     const toggleChat = () => {
         if (!userLoggedIn) {
@@ -85,7 +91,32 @@ export default function ChatWidget() {
 
                 <div className="px-4 pb-2 flex justify-between items-center border-b">
                     <h2 className="font-semibold text-gray-900">Pathwise AI</h2>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
+                        {/* New Chat button */}
+                        <button
+                            onClick={() => {
+                                setMobileShowHistory(false);
+                                setNewChatTrigger(prev => prev + 1);
+                            }}
+                            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500"
+                            aria-label="New chat"
+                            title="New chat"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                        </button>
+                        {/* History button */}
+                        <button
+                            onClick={() => setMobileShowHistory(true)}
+                            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500"
+                            aria-label="Chat history"
+                            title="Chat history"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </button>
                         {chatHeight !== 'full' && (
                             <button
                                 onClick={() => setChatHeight('full')}
@@ -113,7 +144,12 @@ export default function ChatWidget() {
                 </div>
                 <div className="flex-1 overflow-hidden">
                     {chatHeight !== 'minimized' ? (
-                        <ChatInterface selectedLocations={selectedLocations} />
+                        <ChatInterface
+                            selectedLocations={selectedLocations}
+                            showHistoryProp={mobileShowHistory}
+                            setShowHistoryProp={setMobileShowHistory}
+                            newChatTrigger={newChatTrigger}
+                        />
                     ) : (
                         <div className="p-4 text-center text-gray-500 text-sm">
                             Drag up to continue chatting

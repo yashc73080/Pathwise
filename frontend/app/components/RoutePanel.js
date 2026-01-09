@@ -5,11 +5,25 @@ import { useAuth } from '../context/authContext';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { addTrip, updateTripName } from '../firebase/firestore';
+import WeatherVisualization from './WeatherVisualization';
+import { useDraggablePanel } from '../hooks/useDraggablePanel';
 
 export default function RoutePanel() {
-    const { optimizedRoute, selectedLocations, optimizedCoords, exportToGoogleMaps, startIndex, endIndex, activePanel, setActivePanel, routeHeight, setRouteHeight } = useTrip();
+    const { optimizedRoute, selectedLocations, optimizedCoords, exportToGoogleMaps, startIndex, endIndex, activePanel, setActivePanel, routeHeight, setRouteHeight, currentChatSessionId } = useTrip();
     const { userLoggedIn, currentUser, openLoginModal } = useAuth();
     const [isSaving, setIsSaving] = useState(false);
+
+    // Draggable panel hook for mobile resizing
+    const { panelRef, handleDragStart } = useDraggablePanel({
+        initialHeight: routeHeight,
+        onHeightChange: (newHeight) => {
+            if (newHeight === 'minimized') {
+                handleClose();
+            } else {
+                setRouteHeight(newHeight);
+            }
+        }
+    });
 
     // Logging
     useEffect(() => {
@@ -39,7 +53,8 @@ export default function RoutePanel() {
                 })),
                 optimizedRoute,
                 startIndex,
-                endIndex
+                endIndex,
+                chatSessionId: currentChatSessionId || null
             };
 
             const tripId = await addTrip(currentUser.uid, tripData);
@@ -102,22 +117,23 @@ export default function RoutePanel() {
         <>
             {/* Mobile only: Bottom sheet panel with draggable height */}
             <div
+                ref={panelRef}
                 className={`
                     md:hidden fixed z-40 bg-white shadow-xl flex flex-col
                     inset-x-0 bottom-0 rounded-t-2xl
                     transition-all duration-300 ease-in-out
                     ${isMobileVisible ? 'translate-y-0' : 'translate-y-full'}
-                    ${routeHeight === 'full' ? 'h-[60vh]' : 'h-[35vh]'}
+                    ${routeHeight === 'full' ? 'h-[85vh]' : 'h-[40vh]'}
                 `}
                 style={{ paddingBottom: '4rem' }}
             >
-                {/* Tap to toggle height */}
+                {/* Drag Handle */}
                 <div
-                    className="flex justify-center pt-3 pb-2 cursor-pointer"
-                    onClick={() => setRouteHeight(routeHeight === 'full' ? 'partial' : 'full')}
-                    onTouchEnd={(e) => { e.preventDefault(); setRouteHeight(routeHeight === 'full' ? 'partial' : 'full'); }}
+                    className="flex justify-center py-6 cursor-grab active:cursor-grabbing touch-none w-full"
+                    onMouseDown={handleDragStart}
+                    onTouchStart={handleDragStart}
                 >
-                    <div className="w-12 h-1.5 bg-gray-300 rounded-full active:bg-gray-400 transition-colors"></div>
+                    <div className="w-16 h-1.5 bg-gray-300 rounded-full active:bg-gray-400 transition-colors"></div>
                 </div>
 
                 <div className="p-4 border-b flex justify-between items-center">
@@ -166,6 +182,9 @@ export default function RoutePanel() {
 
                 <div className="flex-1 overflow-y-auto p-4">
                     {optimizedRoute ? <RouteList /> : <EmptyState />}
+
+                    {/* Weather Visualization */}
+                    <WeatherVisualization />
                 </div>
             </div>
             {/* Desktop RoutePanel removed - now integrated into Sidebar tabs */}

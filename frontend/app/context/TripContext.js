@@ -27,6 +27,11 @@ export function TripProvider({ children }) {
     // Sidebar and Route panel heights for mobile: 'partial' | 'full'
     const [sidebarHeight, setSidebarHeight] = useState('full');
     const [routeHeight, setRouteHeight] = useState('full');
+    // Weather state
+    const [weatherData, setWeatherData] = useState(null);
+    const [isLoadingWeather, setIsLoadingWeather] = useState(false);
+    // Chat session ID for trip association
+    const [currentChatSessionId, setCurrentChatSessionId] = useState(null);
 
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -283,6 +288,28 @@ export function TripProvider({ children }) {
 
                 setRoutePolyline(newPolyline);
 
+                // Update markers with numbered labels based on optimized route order
+                data.optimized_route.forEach((originalIndex, routePosition) => {
+                    const location = selectedLocations[originalIndex];
+                    if (location.marker) {
+                        location.marker.setLabel({
+                            text: String(routePosition + 1),
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                        });
+                        // Use a custom icon that works better with labels
+                        location.marker.setIcon({
+                            path: window.google.maps.SymbolPath.CIRCLE,
+                            scale: 12,
+                            fillColor: '#2563eb',
+                            fillOpacity: 1,
+                            strokeColor: '#1e40af',
+                            strokeWeight: 2
+                        });
+                    }
+                });
+
                 const bounds = new window.google.maps.LatLngBounds();
                 routeCoordinates.forEach(coord => bounds.extend(coord));
                 map.fitBounds(bounds);
@@ -291,6 +318,9 @@ export function TripProvider({ children }) {
                 setActivePanel('route');
 
                 toast.success("Route optimized!");
+
+                // Fetch weather asynchronously (non-blocking)
+                fetchWeather(data.optimized_route.map(i => selectedLocations[i]));
             } else {
                 toast.error('Failed to submit itinerary.');
             }
@@ -348,13 +378,33 @@ export function TripProvider({ children }) {
         // Clear current state first
         clearAllLocations();
 
-        // Restore locations and create markers
-        const newLocations = trip.locations.map(loc => {
+        // Create a map from original index to route position for numbering
+        const routePositionMap = {};
+        trip.optimizedRoute.forEach((originalIndex, routePosition) => {
+            routePositionMap[originalIndex] = routePosition + 1;
+        });
+
+        // Restore locations and create markers with numbered labels
+        const newLocations = trip.locations.map((loc, index) => {
+            const routeNumber = routePositionMap[index];
             const marker = new window.google.maps.Marker({
                 map: map,
                 position: { lat: loc.lat, lng: loc.lng },
                 title: loc.name,
-                icon: {
+                label: routeNumber ? {
+                    text: String(routeNumber),
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                } : null,
+                icon: routeNumber ? {
+                    path: window.google.maps.SymbolPath.CIRCLE,
+                    scale: 12,
+                    fillColor: '#2563eb',
+                    fillOpacity: 1,
+                    strokeColor: '#1e40af',
+                    strokeWeight: 2
+                } : {
                     url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
                 }
             });
@@ -392,7 +442,56 @@ export function TripProvider({ children }) {
         routeCoordinates.forEach(coord => bounds.extend(coord));
         map.fitBounds(bounds);
 
+        // Clear old weather and fetch new weather for loaded trip
+        setWeatherData(null);
+        fetchWeather(newLocations);
+
+        // Set chat session ID if saved with trip (will trigger ChatInterface to load it)
+        if (trip.chatSessionId) {
+            setCurrentChatSessionId(trip.chatSessionId);
+        } else {
+            setCurrentChatSessionId(null);
+        }
+
         toast.success(`Trip loaded!`);
+    };
+
+    // Fetch weather for optimized route locations (async, non-blocking)
+    const fetchWeather = async (locations) => {
+        if (!locations || locations.length === 0) return;
+
+        setIsLoadingWeather(true);
+        setWeatherData(null);
+
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/weather`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    locations: locations.map(loc => ({
+                        name: loc.name,
+                        lat: loc.lat,
+                        lng: loc.lng
+                    }))
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setWeatherData(data);
+                toast.success('Weather forecast loaded!');
+            } else {
+                console.error('Weather fetch failed:', response.status);
+                toast.error('Failed to load weather');
+            }
+        } catch (error) {
+            console.error('Error fetching weather:', error);
+            toast.error('Error loading weather');
+        } finally {
+            setIsLoadingWeather(false);
+        }
     };
 
     const value = {
@@ -434,7 +533,12 @@ export function TripProvider({ children }) {
         sidebarHeight,
         setSidebarHeight,
         routeHeight,
-        setRouteHeight
+        setRouteHeight,
+        weatherData,
+        isLoadingWeather,
+        fetchWeather,
+        currentChatSessionId,
+        setCurrentChatSessionId
     };
 
     return (

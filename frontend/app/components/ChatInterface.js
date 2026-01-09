@@ -6,18 +6,23 @@ import { useAuth } from '../context/authContext';
 import { useTrip } from '../context/TripContext';
 import { toast } from 'react-hot-toast';
 
-export default function ChatInterface({ selectedLocations }) {
+export default function ChatInterface({ selectedLocations, onNewChat, onShowHistory, showHistoryProp, setShowHistoryProp, newChatTrigger }) {
   const { currentUser } = useAuth();
-  const { setCurrentPlace, setCurrentMarker, currentMarker, map, setChatHeight, setActivePanel, activePanel } = useTrip();
+  const { setCurrentPlace, setCurrentMarker, currentMarker, map, setChatHeight, setActivePanel, activePanel, currentChatSessionId, setCurrentChatSessionId } = useTrip();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [internalShowHistory, setInternalShowHistory] = useState(false);
+
+  // Use external showHistory control if provided (for mobile header integration)
+  const showHistory = showHistoryProp !== undefined ? showHistoryProp : internalShowHistory;
+  const setShowHistory = setShowHistoryProp || setInternalShowHistory;
 
   const chatContainerRef = useRef(null);
   const textareaRef = useRef(null);
+  const isNewChatRef = useRef(false); // Prevents auto-loading after starting new chat
 
   // Parse message content to extract structured place data
   const parseMessageContent = (content) => {
@@ -151,12 +156,30 @@ export default function ChatInterface({ selectedLocations }) {
     }
   }, [input]);
 
-  // Auto-load most recent session on mount
+  // Auto-load most recent session on mount, or specific session if set from loaded trip
   useEffect(() => {
-    if (currentUser && !currentSessionId) {
+    if (currentUser && currentChatSessionId && currentChatSessionId !== currentSessionId) {
+      // Load the specific session from a loaded trip
+      isNewChatRef.current = false;
+      loadSession(currentChatSessionId);
+    } else if (currentUser && !currentSessionId && !currentChatSessionId && !isNewChatRef.current) {
       loadMostRecentSession();
     }
-  }, [currentUser]);
+  }, [currentUser, currentChatSessionId]);
+
+  // Watch for new chat trigger from mobile header
+  useEffect(() => {
+    if (newChatTrigger > 0) {
+      // Mark that we intentionally started a new chat
+      isNewChatRef.current = true;
+      // Start new chat inline
+      setMessages([]);
+      setCurrentSessionId(null);
+      setCurrentChatSessionId(null);
+      setShowHistory(false);
+      setInput('');
+    }
+  }, [newChatTrigger]);
 
   const loadMostRecentSession = async () => {
     try {
@@ -216,6 +239,7 @@ export default function ChatInterface({ selectedLocations }) {
         const data = await response.json();
         setMessages(data.messages);
         setCurrentSessionId(sessionId);
+        setCurrentChatSessionId(sessionId); // Sync with context for trip saving
         setShowHistory(false);
       }
     } catch (error) {
@@ -227,10 +251,13 @@ export default function ChatInterface({ selectedLocations }) {
   };
 
   const startNewChat = () => {
+    isNewChatRef.current = true; // Prevent auto-reload
     setMessages([]);
     setCurrentSessionId(null);
+    setCurrentChatSessionId(null); // Clear from context
     setShowHistory(false);
     setInput('');
+    if (onNewChat) onNewChat();
   };
 
   const handleSubmit = async (e) => {
@@ -248,6 +275,7 @@ export default function ChatInterface({ selectedLocations }) {
       if (!sessionId) {
         sessionId = Date.now().toString();
         setCurrentSessionId(sessionId);
+        setCurrentChatSessionId(sessionId); // Sync with context for trip saving
       }
 
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
@@ -379,8 +407,8 @@ export default function ChatInterface({ selectedLocations }) {
 
   return (
     <div className="flex flex-col h-full relative">
-      {/* Toolbar */}
-      <div className="absolute top-2 right-4 z-10 flex gap-1">
+      {/* Toolbar - hidden on mobile, shown on desktop */}
+      <div className="absolute top-2 right-4 z-10 gap-1 hidden md:flex">
         <button
           onClick={startNewChat}
           className="text-gray-400 hover:text-blue-600 p-1.5 bg-white/80 rounded-full shadow-sm backdrop-blur-sm transition-colors"

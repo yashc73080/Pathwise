@@ -6,6 +6,7 @@ import os
 from christofides import tsp
 from agent import get_chat_response
 from trip_naming import generate_trip_name
+from weather import get_weather_for_locations
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -364,6 +365,44 @@ def generate_trip_name_endpoint():
     except Exception as e:
         print(f"Error generating trip name: {e}")
         return jsonify({"name": "My Trip"})
+
+@app.route('/weather', methods=['POST'])
+def get_weather():
+    """
+    Get weather forecast for trip locations with automatic region clustering.
+    
+    Expected input:
+    {
+        "locations": [
+            {"name": "Empire State Building", "lat": 40.7484, "lng": -73.9857},
+            ...
+        ]
+    }
+    
+    Returns:
+    {
+        "regions": [
+            {
+                "regionName": "New York City Area",
+                "forecast": [...7 days of weather data]
+            }
+        ],
+        "clusterCount": 1,
+        "thresholdMiles": 50
+    }
+    """
+    try:
+        data = request.json
+        locations = data.get('locations', [])
+        
+        if not locations:
+            return jsonify({"regions": [], "clusterCount": 0})
+        
+        result = get_weather_for_locations(locations)
+        return jsonify(result)
+    except Exception as e:
+        print(f"Error fetching weather: {e}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True, port=5000)

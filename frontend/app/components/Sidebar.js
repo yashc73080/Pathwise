@@ -7,6 +7,7 @@ import { useAuth } from '../context/authContext';
 import { addTrip, updateTripName } from '../firebase/firestore';
 import toast from 'react-hot-toast';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import WeatherVisualization from './WeatherVisualization';
 
 export default function Sidebar() {
     const {
@@ -28,7 +29,8 @@ export default function Sidebar() {
         optimizedCoords,
         exportToGoogleMaps,
         sidebarHeight,
-        setSidebarHeight
+        setSidebarHeight,
+        currentChatSessionId
     } = useTrip();
 
     const { userLoggedIn, currentUser, openLoginModal } = useAuth();
@@ -85,7 +87,8 @@ export default function Sidebar() {
                 })),
                 optimizedRoute,
                 startIndex,
-                endIndex
+                endIndex,
+                chatSessionId: currentChatSessionId || null
             };
 
             const tripId = await addTrip(currentUser.uid, tripData);
@@ -278,6 +281,9 @@ export default function Sidebar() {
                                     <p className="text-sm mt-1">Go to Itinerary tab and click &quot;Optimize Route&quot;</p>
                                 </div>
                             )}
+
+                            {/* Weather Visualization */}
+                            <WeatherVisualization />
                         </div>
                     )}
                 </div>

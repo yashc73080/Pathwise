@@ -2,6 +2,7 @@
 
 import { useTrip } from '../context/TripContext';
 import { useAuth } from '../context/authContext';
+import { useDraggablePanel } from '../hooks/useDraggablePanel';
 import ChatInterface from './ChatInterface';
 
 export default function ChatWidget() {
@@ -22,6 +23,16 @@ export default function ChatWidget() {
     // Determine visibility: on mobile, use activePanel; on desktop, use isChatOpen
     const isMobileVisible = activePanel === 'chat';
 
+    // Draggable panel hook
+    const { panelRef, handleDragStart } = useDraggablePanel({
+        initialHeight: chatHeight,
+        onHeightChange: (newHeight) => {
+            setChatHeight(newHeight);
+            // If dragging to minimize, we don't close, just minimize
+            // logic is handled by state
+        }
+    });
+
     // Get height class based on chatHeight state
     const getMobileHeightClass = () => {
         switch (chatHeight) {
@@ -33,41 +44,6 @@ export default function ChatWidget() {
             default:
                 return 'h-[85vh]';
         }
-    };
-
-    const handleDragStart = (e) => {
-        e.preventDefault();
-        const startY = e.touches ? e.touches[0].clientY : e.clientY;
-        const container = e.currentTarget.parentElement;
-        const startHeight = container.offsetHeight;
-
-        const handleMove = (moveEvent) => {
-            const currentY = moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY;
-            const deltaY = startY - currentY;
-            const newHeight = startHeight + deltaY;
-            const viewportHeight = window.innerHeight;
-            const heightPercent = (newHeight / viewportHeight) * 100;
-
-            if (heightPercent > 70) {
-                setChatHeight('full');
-            } else if (heightPercent > 30) {
-                setChatHeight('partial');
-            } else {
-                setChatHeight('minimized');
-            }
-        };
-
-        const handleEnd = () => {
-            document.removeEventListener('mousemove', handleMove);
-            document.removeEventListener('mouseup', handleEnd);
-            document.removeEventListener('touchmove', handleMove);
-            document.removeEventListener('touchend', handleEnd);
-        };
-
-        document.addEventListener('mousemove', handleMove);
-        document.addEventListener('mouseup', handleEnd);
-        document.addEventListener('touchmove', handleMove);
-        document.addEventListener('touchend', handleEnd);
     };
 
     if (!userLoggedIn) {
@@ -90,7 +66,9 @@ export default function ChatWidget() {
     return (
         <>
             {/* Mobile: Partial-height chat panel with drag handle */}
-            <div className={`
+            <div
+                ref={panelRef}
+                className={`
                 md:hidden fixed left-0 right-0 bottom-[72px] z-40 bg-white rounded-t-2xl shadow-xl flex flex-col
                 transition-all duration-300 ease-in-out
                 ${isMobileVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}
@@ -98,11 +76,11 @@ export default function ChatWidget() {
             `}>
                 {/* Drag Handle */}
                 <div
-                    className="flex justify-center py-2 cursor-grab active:cursor-grabbing touch-none"
+                    className="flex justify-center py-5 cursor-grab active:cursor-grabbing touch-none w-full"
                     onMouseDown={handleDragStart}
                     onTouchStart={handleDragStart}
                 >
-                    <div className="w-10 h-1.5 bg-gray-300 rounded-full hover:bg-gray-400 transition-colors"></div>
+                    <div className="w-12 h-1.5 bg-gray-300 rounded-full hover:bg-gray-400 transition-colors"></div>
                 </div>
 
                 <div className="px-4 pb-2 flex justify-between items-center border-b">

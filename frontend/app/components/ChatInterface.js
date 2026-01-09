@@ -312,6 +312,26 @@ export default function ChatInterface({ selectedLocations }) {
   };
 
   if (showHistory) {
+    // Helper to clean message content for preview display
+    const getCleanPreview = (message) => {
+      if (!message) return 'New Chat';
+
+      // Remove places data markers, handling truncated tags at end of string
+      const cleaned = message.replace(/<!--PLACES_DATA:[\s\S]*?(?::PLACES_DATA-->|$)/g, '').trim();
+
+      if (!cleaned) {
+        // If cleaned is empty, it means the message was just data (or data was truncated).
+        // Try to extract place names from the raw data to show something useful.
+        const nameMatch = message.match(/"name":\s*"([^"]+)"/);
+        if (nameMatch && nameMatch[1]) {
+          return `📍 ${nameMatch[1]}...`;
+        }
+        return '📍 Location suggestions';
+      }
+
+      return cleaned.length > 50 ? cleaned.substring(0, 50) + '...' : cleaned;
+    };
+
     return (
       <div className="flex flex-col h-full bg-white">
         <div className="p-3 border-b flex justify-between items-center bg-gray-50">
@@ -334,7 +354,7 @@ export default function ChatInterface({ selectedLocations }) {
                 className="w-full text-left p-3 border-b hover:bg-gray-50 transition-colors"
               >
                 <div className="font-medium text-sm text-gray-900 truncate">
-                  {session.lastMessage ? session.lastMessage.substring(0, 50) + '...' : 'New Chat'}
+                  {getCleanPreview(session.lastMessage)}
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
                   {new Date(session.timestamp).toLocaleDateString()}

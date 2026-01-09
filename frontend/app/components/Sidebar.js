@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useDraggablePanel } from '../hooks/useDraggablePanel';
 import { useTrip } from '../context/TripContext';
 import { useAuth } from '../context/authContext';
 import { addTrip, updateTripName } from '../firebase/firestore';
@@ -35,6 +36,18 @@ export default function Sidebar() {
     // Desktop tab: 'itinerary' | 'route'
     const [desktopTab, setDesktopTab] = useState('itinerary');
     const [isSaving, setIsSaving] = useState(false);
+
+    // Draggable panel hook
+    const { panelRef, handleDragStart } = useDraggablePanel({
+        initialHeight: sidebarHeight,
+        onHeightChange: (newHeight) => {
+            if (newHeight === 'minimized') {
+                handleClose();
+            } else {
+                setSidebarHeight(newHeight);
+            }
+        }
+    });
 
     // Auto-switch to route tab when optimization completes
     useEffect(() => {
@@ -117,22 +130,23 @@ export default function Sidebar() {
 
             {/* Mobile: Bottom sheet panel with draggable height */}
             <div
+                ref={panelRef}
                 className={`
                     md:hidden fixed z-40 bg-white shadow-xl flex flex-col
                     inset-x-0 bottom-0 rounded-t-2xl
                     transition-all duration-300 ease-in-out
                     ${isMobileVisible ? 'translate-y-0' : 'translate-y-full'}
-                    ${sidebarHeight === 'full' ? 'h-[70vh]' : 'h-[40vh]'}
+                    ${sidebarHeight === 'full' ? 'h-[85vh]' : 'h-[40vh]'}
                 `}
                 style={{ paddingBottom: '4rem' }}
             >
-                {/* Tap to toggle height */}
+                {/* Drag Handle */}
                 <div
-                    className="flex justify-center pt-3 pb-2 cursor-pointer"
-                    onClick={() => setSidebarHeight(sidebarHeight === 'full' ? 'partial' : 'full')}
-                    onTouchEnd={(e) => { e.preventDefault(); setSidebarHeight(sidebarHeight === 'full' ? 'partial' : 'full'); }}
+                    className="flex justify-center py-6 cursor-grab active:cursor-grabbing touch-none w-full"
+                    onMouseDown={handleDragStart}
+                    onTouchStart={handleDragStart}
                 >
-                    <div className="w-12 h-1.5 bg-gray-300 rounded-full active:bg-gray-400 transition-colors"></div>
+                    <div className="w-16 h-1.5 bg-gray-300 rounded-full active:bg-gray-400 transition-colors"></div>
                 </div>
 
                 <div className="p-4 border-b flex justify-between items-center">

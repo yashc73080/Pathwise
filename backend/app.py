@@ -10,6 +10,7 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 from session_service import FirestoreSessionService, InMemorySessionService
+import re
 
 # Load environment variables from backend/.env.local
 env_path = os.path.join(os.path.dirname(__file__), '.env.local')
@@ -259,10 +260,13 @@ def chat():
                     # Save assistant response
                     session_service.add_message(user_id, chat_id_arg, 'assistant', full_response)
                     
+                    # Sanitize lastMessage for metadata (remove places data)
+                    clean_last_message = re.sub(r'<!--PLACES_DATA:[\s\S]*?(?::PLACES_DATA-->|$)', '', full_response).strip()
+                    
                     # Update session metadata
                     session_service.update_session(user_id, chat_id_arg, {
                         'locations': locations_arg,
-                        'lastMessage': full_response[:200]
+                        'lastMessage': clean_last_message[:200]
                     })
                     
                     print("DEBUG: Chat saved successfully via session_service")

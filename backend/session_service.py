@@ -4,6 +4,7 @@ Session Service for managing chat sessions with Firestore.
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import re
 
 
 class SessionService(ABC):
@@ -170,8 +171,9 @@ class FirestoreSessionService(SessionService):
         })
         
         # Update session metadata
+        clean_content = re.sub(r'<!--PLACES_DATA:[\s\S]*?(?::PLACES_DATA-->|$)', '', content).strip()
         session_ref.update({
-            'lastMessage': content[:200] if role == 'assistant' else session_ref.get().to_dict().get('lastMessage', ''),
+            'lastMessage': clean_content[:200] if role == 'assistant' else session_ref.get().to_dict().get('lastMessage', ''),
             'lastUpdated': SERVER_TIMESTAMP
         })
     

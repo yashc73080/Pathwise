@@ -25,4 +25,8 @@
 ## Phase 4: Mobile & Capacitor
 - [x] Responsive Design: Optimize Sidebar/Map layout for mobile screens
 - [x] Initialize Capacitor project (iOS/Android)
+- [ ] Ensure map moves like normal on mobile web
 <!-- - [ ] Evaluate Map Strategy: Implement conditional rendering for `@capacitor/google-maps` (Native) vs Google Maps JS API (Web) -->
+
+## Other:
+- [ ] Google Analytics

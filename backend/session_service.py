@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import re
+from firebase_admin import firestore
 
 
 class SessionService(ABC):
@@ -120,12 +121,10 @@ class FirestoreSessionService(SessionService):
         return self._get_session_ref(user_id, session_id).collection('messages')
     
     def create_session(self, user_id: str, session_id: str, metadata: Dict = None) -> str:
-        from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-        
         session_ref = self._get_session_ref(user_id, session_id)
         session_ref.set({
-            'createdAt': SERVER_TIMESTAMP,
-            'lastUpdated': SERVER_TIMESTAMP,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'lastUpdated': firestore.SERVER_TIMESTAMP,
             **(metadata or {})
         })
         return session_id
@@ -138,10 +137,8 @@ class FirestoreSessionService(SessionService):
         return None
     
     def list_sessions(self, user_id: str) -> List[Dict]:
-        from google.cloud.firestore_v1 import Query
-        
         chats_ref = self.db.collection('users').document(user_id).collection('chats')
-        docs = chats_ref.order_by('lastUpdated', direction=Query.DESCENDING).stream()
+        docs = chats_ref.order_by('lastUpdated', direction=firestore.Query.DESCENDING).stream()
         
         sessions = []
         for doc in docs:
@@ -155,8 +152,6 @@ class FirestoreSessionService(SessionService):
         return sessions
     
     def add_message(self, user_id: str, session_id: str, role: str, content: str):
-        from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-        
         # Ensure session exists
         session_ref = self._get_session_ref(user_id, session_id)
         if not session_ref.get().exists:
@@ -167,21 +162,19 @@ class FirestoreSessionService(SessionService):
         messages_ref.add({
             'role': role,
             'content': content,
-            'timestamp': SERVER_TIMESTAMP
+            'timestamp': firestore.SERVER_TIMESTAMP
         })
         
         # Update session metadata
         clean_content = re.sub(r'<!--PLACES_DATA:[\s\S]*?(?::PLACES_DATA-->|$)', '', content).strip()
         session_ref.update({
             'lastMessage': clean_content[:200] if role == 'assistant' else session_ref.get().to_dict().get('lastMessage', ''),
-            'lastUpdated': SERVER_TIMESTAMP
+            'lastUpdated': firestore.SERVER_TIMESTAMP
         })
     
     def get_messages(self, user_id: str, session_id: str) -> List[Dict]:
-        from google.cloud.firestore_v1 import Query
-        
         messages_ref = self._get_messages_ref(user_id, session_id)
-        docs = messages_ref.order_by('timestamp', direction=Query.ASCENDING).stream()
+        docs = messages_ref.order_by('timestamp', direction=firestore.Query.ASCENDING).stream()
         
         messages = []
         for doc in docs:
@@ -193,10 +186,8 @@ class FirestoreSessionService(SessionService):
         return messages
     
     def update_session(self, user_id: str, session_id: str, metadata: Dict):
-        from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-        
         session_ref = self._get_session_ref(user_id, session_id)
         session_ref.set({
             **metadata,
-            'lastUpdated': SERVER_TIMESTAMP
+            'lastUpdated': firestore.SERVER_TIMESTAMP
         }, merge=True)

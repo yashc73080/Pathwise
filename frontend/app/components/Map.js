@@ -26,7 +26,8 @@ export default function Map() {
             zoomControl: false,
             streetViewControl: false,
             fullscreenControl: false,
-            clickableIcons: true
+            clickableIcons: true,
+            gestureHandling: 'greedy'
         });
 
         setMap(newMap);

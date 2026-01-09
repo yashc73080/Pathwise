@@ -1,6 +1,7 @@
 import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from 'react-hot-toast';
+import FirebaseAnalytics from "./components/FirebaseAnalytics";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -16,11 +17,6 @@ const geistMono = localFont({
 export const metadata = {
   title: "Pathwise",
   description: "Optimize your next adventure",
-  icons:
-    <link
-      rel="icon"
-      href="/favicon.ico"
-    />,
 };
 
 export default function RootLayout({ children }) {
@@ -39,6 +35,7 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Toaster position="top-center" />
+        <FirebaseAnalytics />
         {children}
       </body>
     </html>

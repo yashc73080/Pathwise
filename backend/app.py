@@ -217,6 +217,8 @@ def chat():
             "content": f"""You are Pathwise AI, an AI travel assistant with advanced action-taking capabilities. 
             Your primary goal is to help users plan and execute their travel itineraries seamlessly.
             The current itinerary includes the following locations: {locations}.
+            The locations are provided in the format "Name (Address/City)" where available. 
+            Use this location data to infer the user's current area and provide relevant recommendations close to these locations/cities.
             """
         }
         

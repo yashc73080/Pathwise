@@ -251,7 +251,9 @@ export default function ChatInterface({ selectedLocations }) {
       }
 
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
-      const locationsString = selectedLocations.map(loc => loc.name).join(', ');
+      const locationsString = selectedLocations
+        .map(loc => loc.address ? `${loc.name} (${loc.address})` : loc.name)
+        .join('; ');
 
       const token = currentUser ? await currentUser.getIdToken() : '';
 

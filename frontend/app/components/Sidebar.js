@@ -261,7 +261,7 @@ export default function Sidebar() {
                             ) : (
                                 <div className="text-center py-8 text-gray-500">
                                     <p>No optimized route yet</p>
-                                    <p className="text-sm mt-1">Go to Itinerary tab and click "Optimize Route"</p>
+                                    <p className="text-sm mt-1">Go to Itinerary tab and click &quot;Optimize Route&quot;</p>
                                 </div>
                             )}
                         </div>

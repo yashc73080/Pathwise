@@ -125,7 +125,7 @@ export default function LoginModal() {
                     <div className="mt-6 text-center text-sm text-gray-600">
                         {isSigningIn ? (
                             <>
-                                Don't have an account?{' '}
+                                Don&apos;t have an account?{' '}
                                 <button
                                     onClick={() => setIsSigningIn(false)}
                                     className="text-blue-600 hover:text-blue-700 font-medium"

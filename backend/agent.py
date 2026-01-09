@@ -18,7 +18,7 @@ try:
 except Exception as e:
     print(f"Warning: Vertex AI init failed: {e}. Ensure credentials are set.")
 
-def search_places(query: str, location: str = None, gmaps_client: googlemaps.Client = None) -> List[Dict[str, Any]]:
+def search_places(query: str, location: str = None, radius: int = None, gmaps_client: googlemaps.Client = None) -> List[Dict[str, Any]]:
     """
     Search for places using Google Maps API.
     """
@@ -26,7 +26,14 @@ def search_places(query: str, location: str = None, gmaps_client: googlemaps.Cli
         return []
 
     try:
-        response = gmaps_client.places(query=query)
+        # Build arguments explicitly
+        kwargs = {"query": query}
+        if location:
+            kwargs["location"] = location
+        if radius:
+            kwargs["radius"] = radius
+            
+        response = gmaps_client.places(**kwargs)
         results = response.get('results', [])
         places = []
         for result in results[:5]: 
@@ -52,6 +59,14 @@ search_places_func = FunctionDeclaration(
             "query": {
                 "type": "string",
                 "description": "The search query for places, e.g., 'Italian restaurants in SOHO'"
+            },
+            "location": {
+                "type": "string",
+                "description": "The latitude/longitude to bias the search around, in format 'lat,lng' (e.g., '40.7128,-74.0060'). Use the trip centroid or a specific location's coordinates."
+            },
+            "radius": {
+                "type": "integer",
+                "description": "The radius in meters to search within. Default is usually 50000 locally, but explicit radius helps narrow down 'nearby' queries."
             }
         },
         "required": ["query"]
@@ -100,10 +115,13 @@ def get_chat_response(messages: List[Dict[str, str]], gmaps_client: googlemaps.C
         fn = part.function_call
         if fn.name == "search_places":
             query = fn.args.get("query")
-            print(f"Agent calling tool: search_places('{query}')")
+            location = fn.args.get("location")
+            radius = fn.args.get("radius")
+            
+            print(f"Agent calling tool: search_places('{query}', location={location}, radius={radius})")
             
             # Execute tool
-            results = search_places(query, gmaps_client=gmaps_client)
+            results = search_places(query, location=location, radius=radius, gmaps_client=gmaps_client)
             
             # Yield structured place data for frontend to parse
             if results:

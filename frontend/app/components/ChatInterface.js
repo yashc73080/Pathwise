@@ -313,9 +313,14 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
       }
 
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
-      const locationsString = selectedLocations
-        .map(loc => loc.address ? `${loc.name} (${loc.address})` : loc.name)
-        .join('; ');
+      // Serialize locations to JSON to preserve coordinates
+      const locationsData = selectedLocations.map(loc => ({
+        name: loc.name,
+        address: loc.address,
+        lat: loc.lat || loc.location?.lat,
+        lng: loc.lng || loc.location?.lng
+      }));
+      const locationsString = JSON.stringify(locationsData);
 
       const token = currentUser ? await currentUser.getIdToken() : '';
 

@@ -73,14 +73,17 @@ export default function WeatherVisualization() {
         );
     }
 
-    // No weather data yet
-    if (!weatherData || !weatherData.regions || weatherData.regions.length === 0) {
+    // Filter out regions with errors
+    const validRegions = weatherData?.regions?.filter(region => !region.error) || [];
+
+    // No valid weather data (all regions had errors or no regions)
+    if (validRegions.length === 0) {
         return null;
     }
 
     return (
         <div className="mt-4 space-y-4">
-            {weatherData.regions.map((region, regionIndex) => (
+            {validRegions.map((region, regionIndex) => (
                 <div
                     key={regionIndex}
                     className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm"
@@ -100,72 +103,62 @@ export default function WeatherVisualization() {
                         )}
                     </div>
 
-                    {/* Error state */}
-                    {region.error ? (
-                        <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg flex items-center gap-2">
-                            <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>Weather forecast not available for this region</span>
-                        </div>
-                    ) : (
-                        /* 7-day forecast */
-                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-blue-200">
-                            {region.forecast.map((day, dayIndex) => {
-                                const iconUrl = day.iconUrl;
-                                const isEmoji = !iconUrl;
-                                const icon = getWeatherIcon(day.conditionType, iconUrl);
+                    {/* 7-day forecast */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-blue-200">
+                        {region.forecast.map((day, dayIndex) => {
+                            const iconUrl = day.iconUrl;
+                            const isEmoji = !iconUrl;
+                            const icon = getWeatherIcon(day.conditionType, iconUrl);
 
-                                return (
-                                    <div
-                                        key={dayIndex}
-                                        className="flex-shrink-0 w-16 bg-white rounded-lg p-2 shadow-sm hover:shadow-md transition-shadow text-center"
-                                    >
-                                        {/* Day of week */}
-                                        <p className="text-xs font-medium text-gray-600 mb-1">
-                                            {dayIndex === 0 ? 'Today' : getDayOfWeek(day.date)}
-                                        </p>
+                            return (
+                                <div
+                                    key={dayIndex}
+                                    className="flex-shrink-0 w-16 bg-white rounded-lg p-2 shadow-sm hover:shadow-md transition-shadow text-center"
+                                >
+                                    {/* Day of week */}
+                                    <p className="text-xs font-medium text-gray-600 mb-1">
+                                        {dayIndex === 0 ? 'Today' : getDayOfWeek(day.date)}
+                                    </p>
 
-                                        {/* Weather icon */}
-                                        <div className="w-10 h-10 mx-auto mb-1 flex items-center justify-center">
-                                            {isEmoji ? (
-                                                <span className="text-2xl">{icon}</span>
-                                            ) : (
-                                                <img
-                                                    src={icon}
-                                                    alt={day.condition}
-                                                    className="w-10 h-10"
-                                                    onError={(e) => {
-                                                        e.target.onerror = null;
-                                                        e.target.style.display = 'none';
-                                                        e.target.nextSibling.style.display = 'block';
-                                                    }}
-                                                />
-                                            )}
-                                            <span className="text-2xl hidden">🌡️</span>
-                                        </div>
-
-                                        {/* Temperature */}
-                                        <p className="text-sm font-semibold text-gray-800">
-                                            {toFahrenheit(day.maxTemp)}°
-                                            <span className="text-gray-400 font-normal"> / </span>
-                                            <span className="text-gray-500 font-normal">{toFahrenheit(day.minTemp)}°</span>
-                                        </p>
-
-                                        {/* Precipitation */}
-                                        {day.precipitationPercent > 0 && (
-                                            <p className="text-xs text-blue-500 mt-0.5 flex items-center justify-center gap-0.5">
-                                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M5.5 17a4.5 4.5 0 01-1.44-8.765 4.5 4.5 0 018.302-3.046 3.5 3.5 0 014.504 4.272A4 4 0 0115 17H5.5zm3.75-2.75a.75.75 0 001.5 0V9.66l1.95 2.1a.75.75 0 101.1-1.02l-3.25-3.5a.75.75 0 00-1.1 0l-3.25 3.5a.75.75 0 101.1 1.02l1.95-2.1v4.59z" clipRule="evenodd" />
-                                                </svg>
-                                                {day.precipitationPercent}%
-                                            </p>
+                                    {/* Weather icon */}
+                                    <div className="w-10 h-10 mx-auto mb-1 flex items-center justify-center">
+                                        {isEmoji ? (
+                                            <span className="text-2xl">{icon}</span>
+                                        ) : (
+                                            <img
+                                                src={icon}
+                                                alt={day.condition}
+                                                className="w-10 h-10"
+                                                onError={(e) => {
+                                                    e.target.onerror = null;
+                                                    e.target.style.display = 'none';
+                                                    e.target.nextSibling.style.display = 'block';
+                                                }}
+                                            />
                                         )}
+                                        <span className="text-2xl hidden">🌡️</span>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
+
+                                    {/* Temperature */}
+                                    <p className="text-sm font-semibold text-gray-800">
+                                        {toFahrenheit(day.maxTemp)}°
+                                        <span className="text-gray-400 font-normal"> / </span>
+                                        <span className="text-gray-500 font-normal">{toFahrenheit(day.minTemp)}°</span>
+                                    </p>
+
+                                    {/* Precipitation */}
+                                    {day.precipitationPercent > 0 && (
+                                        <p className="text-xs text-blue-500 mt-0.5 flex items-center justify-center gap-0.5">
+                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M5.5 17a4.5 4.5 0 01-1.44-8.765 4.5 4.5 0 018.302-3.046 3.5 3.5 0 014.504 4.272A4 4 0 0115 17H5.5zm3.75-2.75a.75.75 0 001.5 0V9.66l1.95 2.1a.75.75 0 101.1-1.02l-3.25-3.5a.75.75 0 00-1.1 0l-3.25 3.5a.75.75 0 101.1 1.02l1.95-2.1v4.59z" clipRule="evenodd" />
+                                            </svg>
+                                            {day.precipitationPercent}%
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             ))}
         </div>

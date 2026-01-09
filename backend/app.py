@@ -53,7 +53,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
 
 @app.route('/')
 def home():
-    return "Welcome to the TSP API! Use the /submit-itinerary endpoint to calculate routes."
+    return "Welcome to the Pathwise API! Use the /submit-itinerary endpoint to calculate routes."
 
 @app.route('/submit-itinerary', methods=['POST'])
 def submit_itinerary():
@@ -210,16 +210,46 @@ def optimize_route():
 def chat():
     try:
         messages = request.json
-        locations = request.args.get('locations')  # Extract locations from query parameters
+        locations_param = request.args.get('locations')
+        centroid_info = ""
+        formatted_locations = locations_param
+        
+        try:
+            # Try parsing as JSON first
+            if locations_param and (locations_param.startswith('[') or locations_param.startswith('{')):
+                locations_data = json.loads(locations_param)
+                if isinstance(locations_data, list) and len(locations_data) > 0:
+                    # Calculate Centroid
+                    lats = [float(loc.get('lat')) for loc in locations_data if loc.get('lat') is not None]
+                    lngs = [float(loc.get('lng')) for loc in locations_data if loc.get('lng') is not None]
+                    
+                    formatted_req_locations = []
+                    for loc in locations_data:
+                        loc_str = loc.get('name', 'Unknown')
+                        if loc.get('lat') and loc.get('lng'):
+                            loc_str += f" ({loc['lat']},{loc['lng']})"
+                        formatted_req_locations.append(loc_str)
+                    formatted_locations = "; ".join(formatted_req_locations)
+
+                    if lats and lngs:
+                        center_lat = sum(lats) / len(lats)
+                        center_lng = sum(lngs) / len(lngs)
+                        centroid_info = f"\nThe geographic center (centroid) of the trip is approximately lat:{center_lat:.4f}, lng:{center_lng:.4f}. Use this coordinates as the 'location' parameter in search_places for general 'nearby' queries."
+        except Exception as e:
+            # Fallback to assuming it's the old semicolon string format or just plain text
+            print(f"Error parsing locations for chat context: {e}")
+            pass
 
         # System message for context
         system_message = {
             "role": "system",
             "content": f"""You are Pathwise AI, an AI travel assistant with advanced action-taking capabilities. 
             Your primary goal is to help users plan and execute their travel itineraries seamlessly.
-            The current itinerary includes the following locations: {locations}.
-            The locations are provided in the format "Name (Address/City)" where available. 
-            Use this location data to infer the user's current area and provide relevant recommendations close to these locations/cities.
+            The current itinerary includes the following locations: {formatted_locations}.
+            {centroid_info}
+            When the user asks for "nearby" recommendations without specifying a reference point, infer whether they mean near a specific stop or the general area of the trip. 
+            The search_places tool accepts 'location' (lat,lng string) and 'radius' (meters) parameters. PREFER using these parameters with the centroid or a specific location's coordinates over text-based search alone.
+            IMPORTANT: When you use the `search_places` tool, the results will be displayed to the user as visual cards. IN YOUR TEXT RESPONSE, DO NOT LIST THE PLACES AGAIN (no names, addresses, or ratings). Only provide a brief summary (e.g., 'I found several options nearby...') or specific advice/directions if asked. Avoid redundancy.
             """
         }
         

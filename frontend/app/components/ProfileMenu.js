@@ -4,8 +4,10 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/authContext';
 import { doSignOut } from '../firebase/auth';
 import toast from 'react-hot-toast';
+import { useTrip } from '../context/TripContext';
 
 export default function ProfileMenu() {
+    const { clearAllLocations, setWeatherData } = useTrip();
     const { currentUser, userLoggedIn, openLoginModal, openSavedTripsModal } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef(null);
@@ -29,6 +31,8 @@ export default function ProfileMenu() {
             await doSignOut();
             toast.success('Logged out successfully');
             setIsOpen(false);
+            clearAllLocations();
+            setWeatherData(null);
         } catch (error) {
             toast.error('Error logging out');
         }

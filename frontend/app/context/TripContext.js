@@ -537,6 +537,7 @@ export function TripProvider({ children }) {
         weatherData,
         isLoadingWeather,
         fetchWeather,
+        setWeatherData,
         currentChatSessionId,
         setCurrentChatSessionId
     };

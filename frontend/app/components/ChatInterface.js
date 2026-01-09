@@ -446,29 +446,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
 
   return (
     <div className="flex flex-col h-full relative">
-      {/* Toolbar - hidden on mobile, shown on desktop */}
-      <div className="absolute top-2 right-4 z-10 gap-1 hidden md:flex">
-        <button
-          onClick={startNewChat}
-          className="text-gray-400 hover:text-blue-600 p-1.5 bg-white/80 rounded-full shadow-sm backdrop-blur-sm transition-colors"
-          title="New chat"
-          aria-label="Start new chat"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
-        <button
-          onClick={() => setShowHistory(true)}
-          className="text-gray-400 hover:text-blue-600 p-1.5 bg-white/80 rounded-full shadow-sm backdrop-blur-sm transition-colors"
-          title="Chat history"
-          aria-label="View chat history"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </button>
-      </div>
+
 
       <div
         ref={chatContainerRef}

@@ -26,6 +26,9 @@ export default function ChatWidget() {
         setChatHeight('full');
     };
 
+    // State for controlling ChatInterface history view from desktop header
+    const [desktopShowHistory, setDesktopShowHistory] = useState(false);
+
     // Determine visibility: on mobile, use activePanel; on desktop, use isChatOpen
     const isMobileVisible = activePanel === 'chat';
 
@@ -164,19 +167,51 @@ export default function ChatWidget() {
                     <div className="mb-4 bg-white shadow-xl rounded-lg w-96 overflow-hidden">
                         <div className="h-[600px] flex flex-col">
                             <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-lg">
-                                <h2 className="font-semibold text-white">Pathwise AI Assistant</h2>
-                                <button
-                                    onClick={() => setIsChatOpen(false)}
-                                    className="p-1 hover:bg-blue-800 rounded transition-colors text-white"
-                                    aria-label="Close chat"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
+                                <h2 className="font-semibold text-white">Pathwise AI</h2>
+                                <div className="flex gap-1">
+                                    {/* New Chat button */}
+                                    <button
+                                        onClick={() => {
+                                            setDesktopShowHistory(false);
+                                            setNewChatTrigger(prev => prev + 1);
+                                        }}
+                                        className="p-1.5 hover:bg-blue-800 rounded text-white"
+                                        aria-label="New chat"
+                                        title="New chat"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                    </button>
+                                    {/* History button */}
+                                    <button
+                                        onClick={() => setDesktopShowHistory(true)}
+                                        className="p-1.5 hover:bg-blue-800 rounded text-white"
+                                        aria-label="Chat history"
+                                        title="Chat history"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={() => setIsChatOpen(false)}
+                                        className="p-1.5 hover:bg-blue-800 rounded transition-colors text-white"
+                                        aria-label="Close chat"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                             <div className="flex-1 overflow-hidden">
-                                <ChatInterface selectedLocations={selectedLocations} />
+                                <ChatInterface
+                                    selectedLocations={selectedLocations}
+                                    showHistoryProp={desktopShowHistory}
+                                    setShowHistoryProp={setDesktopShowHistory}
+                                    newChatTrigger={newChatTrigger}
+                                />
                             </div>
                         </div>
                     </div>

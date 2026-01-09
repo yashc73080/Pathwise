@@ -8,7 +8,7 @@ import { toast } from 'react-hot-toast';
 
 export default function ChatInterface({ selectedLocations, onNewChat, onShowHistory, showHistoryProp, setShowHistoryProp, newChatTrigger }) {
   const { currentUser } = useAuth();
-  const { setCurrentPlace, setCurrentMarker, currentMarker, map, setChatHeight, setActivePanel, activePanel, currentChatSessionId, setCurrentChatSessionId } = useTrip();
+  const { setCurrentPlace, setCurrentMarker, currentMarker, map, setChatHeight, setActivePanel, activePanel, currentChatSessionId, setCurrentChatSessionId, addToItinerary } = useTrip();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -94,6 +94,29 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
       toast.success(`Showing ${place.name} on map`);
     };
 
+    const handleAddToItinerary = () => {
+      const lat = place.location?.lat;
+      const lng = place.location?.lng;
+
+      if (!lat || !lng) {
+        toast.error('Location coordinates not available');
+        return;
+      }
+
+      addToItinerary({
+        name: place.name,
+        address: place.address,
+        lat: lat,
+        lng: lng,
+        placeId: place.place_id
+      });
+
+      // On mobile, minimize chat to partial height to show the map
+      if (window.innerWidth < 768 && activePanel === 'chat') {
+        setChatHeight('partial');
+      }
+    };
+
     const handleOpenDetails = () => {
       // Open Google Maps with place details
       // Use place_id on desktop (better UX), search query on mobile (app compatibility)
@@ -126,16 +149,27 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
               </div>
             )}
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); handleShowOnMap(); }}
-            className="ml-2 px-4 py-2.5 md:px-3 md:py-1.5 bg-blue-600 text-white text-sm md:text-xs font-medium rounded-lg md:rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1.5 md:gap-1 shrink-0"
-          >
-            <svg className="w-4 h-4 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Show
-          </button>
+          <div className="flex flex-col gap-1.5 ml-2 shrink-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleShowOnMap(); }}
+              className="w-full px-4 py-2 md:px-3 md:py-1.5 bg-blue-600 text-white text-sm md:text-xs font-medium rounded-lg md:rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5 md:gap-1"
+            >
+              <svg className="w-4 h-4 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Show
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleAddToItinerary(); }}
+              className="w-full px-4 py-2 md:px-3 md:py-1.5 bg-green-600 text-white text-sm md:text-xs font-medium rounded-lg md:rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5 md:gap-1"
+            >
+              <svg className="w-4 h-4 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add
+            </button>
+          </div>
         </div>
       </div>
     );

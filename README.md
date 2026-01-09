@@ -97,8 +97,11 @@ npm install
 
 ### Run the Application
 
+#### 1. Desktop Development (Standard)
+
 **Start the backend** (in `backend/` directory):
 ```bash
+conda activate trip
 python app.py
 ```
 
@@ -108,6 +111,86 @@ npm run dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000) to use the app.
+
+---
+
+#### 2. Mobile Browser Testing (No App Install Required)
+
+Test on your phone by accessing the dev server over your local network:
+
+**Start the backend:**
+```bash
+cd backend
+conda activate trip
+python app.py  # Runs on 0.0.0.0:5000
+```
+
+**Start the frontend with network access:**
+```bash
+cd frontend
+npm run dev -- -H 0.0.0.0
+```
+
+**On your phone:**
+1. Connect to the same WiFi as your computer
+2. Find your computer's IP address:
+   - Windows: `ipconfig` → look for IPv4 Address
+   - Mac/Linux: `ifconfig` or `ip addr`
+3. Visit `http://YOUR_COMPUTER_IP:3000` in your phone's browser
+
+**⚠️ Note:** Make sure `frontend/.env.local` has:
+```
+NEXT_PUBLIC_BACKEND_URL=http://YOUR_COMPUTER_IP:5000
+```
+
+---
+
+#### 3. Capacitor Native App (Production Build)
+
+Build and run as a native Android/iOS app:
+
+```bash
+cd frontend
+
+# Build the web app
+npm run build
+
+# Sync to native projects
+npx cap sync
+
+# Open in IDE
+npx cap open android  # Opens Android Studio
+npx cap open ios      # Opens Xcode (Mac only)
+```
+
+Then click **Run** in Android Studio/Xcode.
+
+**For Android Emulator:** Update `.env.local` to use `10.0.2.2` instead of `localhost`:
+```
+NEXT_PUBLIC_BACKEND_URL=http://10.0.2.2:5000
+```
+
+---
+
+#### 4. Capacitor Live Reload (Fast Development)
+
+Edit and see changes instantly on your phone without rebuilding:
+
+**1. Start the dev server:**
+```bash
+cd frontend
+npm run dev -- -H 0.0.0.0
+```
+
+**2. Sync and run:**
+```bash
+npx cap sync
+npx cap open android  # Then click Run in Android Studio
+```
+
+Now any code changes will hot-reload on your device!
+
+**⚠️ Remember:** Remove the `server` block from `capacitor.config.ts` for production builds.
 
 ---
 
@@ -121,6 +204,8 @@ Pathwise/
 │   │   ├── context/        # React Context (TripContext, AuthContext)
 │   │   ├── firebase/       # Firebase config and Firestore helpers
 │   │   └── page.js         # Main page
+│   ├── ios/                # Capacitor iOS project
+│   ├── android/            # Capacitor Android project
 │   └── package.json
 │
 ├── backend/                # Flask backend

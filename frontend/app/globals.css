@@ -151,8 +151,6 @@ body {
 
 .pac-icon {
   margin-right: 12px;
-  background-color: var(--pathwise-primary);
-  border-radius: 50%;
 }
 
 .pac-item-query {

@@ -136,38 +136,41 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
     return (
       <div
         onClick={handleOpenDetails}
-        className="bg-white border border-gray-200 rounded-lg p-3 mb-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+        className="bg-white border border-gray-200 rounded-lg p-2.5 md:p-3 mb-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
       >
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start gap-2">
           <div className="flex-1 min-w-0">
             <h4 className="font-medium text-gray-900 text-sm truncate">{place.name}</h4>
-            <p className="text-xs text-gray-500 truncate mt-0.5">{place.address}</p>
+            <p className="text-xs text-gray-500 truncate">{place.address}</p>
             {place.rating && (
-              <div className="flex items-center mt-1">
+              <div className="flex items-center mt-0.5">
                 <span className="text-yellow-500 text-xs">★</span>
-                <span className="text-xs text-gray-600 ml-1">{place.rating}</span>
+                <span className="text-xs text-gray-600 ml-0.5">{place.rating}</span>
               </div>
             )}
           </div>
-          <div className="flex flex-col gap-1.5 ml-2 shrink-0">
+          {/* Mobile: icon-only buttons side-by-side, Desktop: stacked buttons with text */}
+          <div className="flex flex-row md:flex-col gap-1.5 ml-2 shrink-0">
             <button
               onClick={(e) => { e.stopPropagation(); handleShowOnMap(); }}
-              className="w-full px-4 py-2 md:px-3 md:py-1.5 bg-blue-600 text-white text-sm md:text-xs font-medium rounded-lg md:rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5 md:gap-1"
+              className="p-2 md:px-3 md:py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+              title="Show on map"
             >
               <svg className="w-4 h-4 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              Show
+              <span className="hidden md:inline text-xs font-medium">Show</span>
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); handleAddToItinerary(); }}
-              className="w-full px-4 py-2 md:px-3 md:py-1.5 bg-green-600 text-white text-sm md:text-xs font-medium rounded-lg md:rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5 md:gap-1"
+              className="p-2 md:px-3 md:py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-1"
+              title="Add to itinerary"
             >
               <svg className="w-4 h-4 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Add
+              <span className="hidden md:inline text-xs font-medium">Add</span>
             </button>
           </div>
         </div>

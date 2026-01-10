@@ -132,27 +132,36 @@ export default function RoutePanel() {
                     transition-all duration-300 ease-in-out
                     ${isMobileVisible ? 'translate-y-0' : 'translate-y-full'}
                     ${routeHeight === 'full' ? 'h-[75vh]' : 'h-[40vh]'}
-                    pb-20
+                    pb-12
                 `}
             >
-                {/* Drag Handle */}
+                {/* Centered Drag Pill */}
                 <div
-                    className="flex justify-center py-6 cursor-grab active:cursor-grabbing touch-none w-full"
+                    className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing touch-none"
                     onMouseDown={handleDragStart}
                     onTouchStart={handleDragStart}
                 >
-                    <div className="w-16 h-1.5 bg-gray-300 rounded-full active:bg-gray-400 transition-colors"></div>
+                    <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
                 </div>
 
-                <div className="p-4 border-b flex justify-between items-center">
-                    <h3 className="font-semibold text-gray-900">Optimized Route</h3>
-                    <div className="flex gap-2 items-center">
+                {/* Header Row - left side draggable, right side buttons */}
+                <div className="px-4 pb-2 flex items-center border-b">
+                    {/* Draggable area - title */}
+                    <div
+                        className="flex-1 cursor-grab active:cursor-grabbing touch-none"
+                        onMouseDown={handleDragStart}
+                        onTouchStart={handleDragStart}
+                    >
+                        <h3 className="font-semibold text-gray-900">Optimized Route</h3>
+                    </div>
+                    {/* Buttons - not draggable */}
+                    <div className="flex gap-1 items-center">
                         {showSignInPrompt && !currentUser && (
                             <button
                                 onClick={openLoginModal}
-                                className="mr-2 px-3 py-1.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full animate-pulse hover:bg-blue-200"
+                                className="mr-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full animate-pulse hover:bg-blue-200"
                             >
-                                Sign In to Save
+                                Sign In
                             </button>
                         )}
                         {optimizedRoute && (
@@ -160,7 +169,7 @@ export default function RoutePanel() {
                                 <button
                                     onClick={handleSaveTrip}
                                     disabled={isSaving}
-                                    className={`p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200 ${isSaving ? 'opacity-75 cursor-not-allowed' : ''}`}
+                                    className={`p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200 ${isSaving ? 'opacity-75 cursor-not-allowed' : ''}`}
                                     title="Save Trip"
                                     aria-label="Save trip"
                                 >
@@ -174,7 +183,7 @@ export default function RoutePanel() {
                                 </button>
                                 <button
                                     onClick={exportToGoogleMaps}
-                                    className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                                    className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
                                     title="Export to Google Maps"
                                     aria-label="Export to Google Maps"
                                 >
@@ -186,7 +195,7 @@ export default function RoutePanel() {
                         )}
                         <button
                             onClick={handleClose}
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                             aria-label="Close route panel"
                         >
                             <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

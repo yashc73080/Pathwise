@@ -144,20 +144,29 @@ export default function Sidebar() {
                     transition-all duration-300 ease-in-out
                     ${isMobileVisible ? 'translate-y-0' : 'translate-y-full'}
                     ${sidebarHeight === 'full' ? 'h-[75vh]' : 'h-[40vh]'}
-                    pb-20
+                    pb-12
                 `}
             >
-                {/* Drag Handle */}
+                {/* Centered Drag Pill */}
                 <div
-                    className="flex justify-center py-6 cursor-grab active:cursor-grabbing touch-none w-full"
+                    className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing touch-none"
                     onMouseDown={handleDragStart}
                     onTouchStart={handleDragStart}
                 >
-                    <div className="w-16 h-1.5 bg-gray-300 rounded-full active:bg-gray-400 transition-colors"></div>
+                    <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
                 </div>
 
-                <div className="p-4 border-b flex justify-between items-center">
-                    <h2 className="text-xl font-semibold text-gray-900">Your Itinerary</h2>
+                {/* Header Row - left side draggable, right side button */}
+                <div className="px-4 pb-2 flex items-center border-b">
+                    {/* Draggable area - title */}
+                    <div
+                        className="flex-1 cursor-grab active:cursor-grabbing touch-none"
+                        onMouseDown={handleDragStart}
+                        onTouchStart={handleDragStart}
+                    >
+                        <h2 className="text-lg font-semibold text-gray-900">Your Itinerary</h2>
+                    </div>
+                    {/* Close button - not draggable */}
                     <button
                         onClick={handleClose}
                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -387,7 +396,7 @@ function LocationList({ selectedLocations, handleDragEnd, startIndex, endIndex, 
                     <div
                         {...provided.droppableProps}
                         ref={provided.innerRef}
-                        className="p-4 space-y-3"
+                        className="p-3 space-y-2"
                     >
                         {selectedLocations.map((location, index) => (
                             <Draggable key={index} draggableId={`location-${index}`} index={index}>
@@ -396,63 +405,74 @@ function LocationList({ selectedLocations, handleDragEnd, startIndex, endIndex, 
                                         ref={provided.innerRef}
                                         {...provided.draggableProps}
                                         className={`
-                                            bg-gray-50 rounded-lg p-3 border transition-all duration-200
+                                            bg-gray-50 rounded-lg p-2.5 border transition-all duration-200
                                             ${snapshot.isDragging
                                                 ? 'shadow-lg border-blue-300 scale-[1.02]'
                                                 : 'border-gray-100 hover:border-blue-200 hover:shadow-sm'
                                             }
                                         `}
                                     >
-                                        <div className="flex justify-between items-start gap-2">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <div
-                                                        {...provided.dragHandleProps}
-                                                        className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-200 rounded transition-colors"
-                                                        aria-label="Drag to reorder"
-                                                    >
-                                                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                                                        </svg>
-                                                    </div>
+                                        <div className="flex items-center gap-2">
+                                            {/* Drag handle */}
+                                            <div
+                                                {...provided.dragHandleProps}
+                                                className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-gray-200 rounded transition-colors shrink-0"
+                                                aria-label="Drag to reorder"
+                                            >
+                                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                                                </svg>
+                                            </div>
+
+                                            {/* Location info */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    <p className="font-medium text-gray-900 text-sm truncate">{location.name}</p>
                                                     {startIndex === index && (
-                                                        <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Start</span>
+                                                        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-800 rounded shrink-0">S</span>
                                                     )}
                                                     {endIndex === index && (
-                                                        <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">End</span>
+                                                        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-800 rounded shrink-0">E</span>
                                                     )}
                                                 </div>
-                                                <p className="font-medium text-gray-900">{location.name}</p>
-                                                <p className="text-sm text-gray-500 line-clamp-1">{location.address}</p>
+                                                <p className="text-xs text-gray-500 truncate">{location.address}</p>
                                             </div>
-                                            <div className="flex flex-col gap-2 items-end">
-                                                <div className="flex gap-1">
-                                                    <button
-                                                        onClick={() => setStartLocation(index)}
-                                                        className={`px-2 py-1.5 text-xs rounded-lg transition-all ${startIndex === index
-                                                            ? 'bg-green-600 text-white'
-                                                            : 'bg-gray-100 text-gray-600 hover:bg-green-100'
-                                                            }`}
-                                                        title="Set as start"
-                                                    >
-                                                        S
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setEndLocation(index)}
-                                                        className={`px-2 py-1.5 text-xs rounded-lg transition-all ${endIndex === index
-                                                            ? 'bg-red-600 text-white'
-                                                            : 'bg-gray-100 text-gray-600 hover:bg-red-100'
-                                                            }`}
-                                                        title="Set as end"
-                                                    >
-                                                        E
-                                                    </button>
-                                                </div>
+
+                                            {/* Action buttons */}
+                                            <div className="flex gap-1 shrink-0">
+                                                <button
+                                                    onClick={() => setStartLocation(index)}
+                                                    className={`p-1.5 rounded transition-all ${startIndex === index
+                                                        ? 'bg-green-600 text-white'
+                                                        : 'bg-gray-100 text-gray-600 hover:bg-green-100'
+                                                        }`}
+                                                    title="Set as start"
+                                                >
+                                                    {/* Flag icon for start */}
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    onClick={() => setEndLocation(index)}
+                                                    className={`p-1.5 rounded transition-all ${endIndex === index
+                                                        ? 'bg-red-600 text-white'
+                                                        : 'bg-gray-100 text-gray-600 hover:bg-red-100'
+                                                        }`}
+                                                    title="Set as end"
+                                                >
+                                                    {/* Location pin icon for end */}
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    </svg>
+                                                </button>
                                                 <button
                                                     onClick={() => removeLocation(index)}
-                                                    className="text-gray-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-lg transition-all"
+                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
                                                     aria-label="Remove location"
                                                 >
+                                                    {/* Trash icon for remove */}
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                     </svg>
@@ -474,35 +494,35 @@ function LocationList({ selectedLocations, handleDragEnd, startIndex, endIndex, 
 // ActionButtons component
 function ActionButtons({ selectedLocations, submitItinerary, isSubmitting, clearAllLocations }) {
     return (
-        <div className="p-4 border-t bg-gray-50 rounded-b-lg">
+        <div className="p-3 border-t bg-gray-50 rounded-b-lg">
             {selectedLocations.length > 0 && (
-                <>
+                <div className="flex gap-2">
                     <button
                         onClick={submitItinerary}
                         disabled={isSubmitting}
-                        className={`w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium shadow-sm hover:from-blue-700 hover:to-blue-800 transition-all ${isSubmitting ? 'opacity-75 cursor-not-allowed' : 'hover:shadow-md'
+                        className={`flex-1 py-2 px-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium text-sm shadow-sm hover:from-blue-700 hover:to-blue-800 transition-all ${isSubmitting ? 'opacity-75 cursor-not-allowed' : 'hover:shadow-md'
                             }`}
                     >
                         {isSubmitting ? (
                             <div className="flex items-center justify-center gap-2">
-                                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                 </svg>
                                 Optimizing...
                             </div>
                         ) : (
-                            'Optimize Route'
+                            'Optimize'
                         )}
                     </button>
 
                     <button
                         onClick={clearAllLocations}
-                        className="w-full mt-2 py-2 px-4 text-gray-500 hover:text-red-600 text-sm transition-colors hover:bg-red-50 rounded-lg"
+                        className="py-2 px-3 text-gray-500 hover:text-red-600 text-sm transition-colors hover:bg-red-50 rounded-lg border border-gray-200"
                     >
-                        Clear All
+                        Clear
                     </button>
-                </>
+                </div>
             )}
         </div>
     );

@@ -61,19 +61,28 @@ export default function ChatWidget() {
                 transition-all duration-300 ease-in-out
                 ${isMobileVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}
                 ${getMobileHeightClass()}
-                pb-20
+                pb-12
             `}>
-                {/* Drag Handle */}
+                {/* Centered Drag Pill */}
                 <div
-                    className="flex justify-center py-5 cursor-grab active:cursor-grabbing touch-none w-full"
+                    className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing touch-none"
                     onMouseDown={handleDragStart}
                     onTouchStart={handleDragStart}
                 >
-                    <div className="w-12 h-1.5 bg-gray-300 rounded-full hover:bg-gray-400 transition-colors"></div>
+                    <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
                 </div>
 
-                <div className="px-4 pb-2 flex justify-between items-center border-b">
-                    <h2 className="font-semibold text-gray-900">Pathwise AI</h2>
+                {/* Header Row - left side draggable, right side buttons */}
+                <div className="px-4 pb-2 flex items-center border-b">
+                    {/* Draggable area - title */}
+                    <div
+                        className="flex-1 cursor-grab active:cursor-grabbing touch-none"
+                        onMouseDown={handleDragStart}
+                        onTouchStart={handleDragStart}
+                    >
+                        <h2 className="font-semibold text-gray-900">Pathwise AI</h2>
+                    </div>
+                    {/* Buttons - not draggable */}
                     <div className="flex gap-1">
                         {/* New Chat button */}
                         <button

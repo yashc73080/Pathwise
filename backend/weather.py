@@ -32,6 +32,62 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
+def reverse_geocode_region(lat: float, lng: float) -> str:
+    """
+    Use Google's Geocoding API to get a broader region name for coordinates.
+    Returns a city/county level name instead of a specific place name.
+    
+    Args:
+        lat: Latitude
+        lng: Longitude
+        
+    Returns:
+        A human-readable region name (e.g., "Los Angeles, CA" or "Cook County, IL")
+    """
+    if not GOOGLE_MAPS_API_KEY:
+        return None
+    
+    url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lng}&key={GOOGLE_MAPS_API_KEY}"
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        
+        if data.get('status') != 'OK' or not data.get('results'):
+            return None
+        
+        # Extract address components from the first result
+        components = data['results'][0].get('address_components', [])
+        
+        locality = None  # City
+        admin_area_2 = None  # County
+        admin_area_1 = None  # State
+        
+        for component in components:
+            types = component.get('types', [])
+            if 'locality' in types:
+                locality = component.get('long_name')
+            elif 'administrative_area_level_2' in types:
+                admin_area_2 = component.get('long_name')
+            elif 'administrative_area_level_1' in types:
+                admin_area_1 = component.get('short_name')  # Use short name for state (e.g., "CA")
+        
+        # Build the region name with preference: City + State > County + State > State
+        if locality and admin_area_1:
+            return f"{locality}, {admin_area_1}"
+        elif admin_area_2 and admin_area_1:
+            return f"{admin_area_2}, {admin_area_1}"
+        elif admin_area_1:
+            return admin_area_1
+        
+        return None
+        
+    except Exception as e:
+        print(f"Reverse geocoding error: {e}")
+        return None
+
+
 def cluster_locations(locations: List[Dict[str, Any]], threshold_miles: float = DEFAULT_CLUSTER_THRESHOLD_MILES) -> List[Dict[str, Any]]:
     """
     Cluster locations by distance using a simple greedy algorithm.
@@ -68,6 +124,12 @@ def cluster_locations(locations: List[Dict[str, Any]], threshold_miles: float = 
         
         # If no cluster found, create a new one
         if not assigned:
+            # Use reverse geocoding to get a broader region name
+            region_name = reverse_geocode_region(lat, lng)
+            if not region_name:
+                # Fallback to location name if reverse geocoding fails
+                region_name = location['name']
+            
             clusters.append({
                 'centroid': {
                     'name': location['name'],
@@ -75,7 +137,7 @@ def cluster_locations(locations: List[Dict[str, Any]], threshold_miles: float = 
                     'lng': lng
                 },
                 'locations': [location],
-                'regionName': f"{location['name']} Area"
+                'regionName': f"{region_name} Area"
             })
     
     return clusters

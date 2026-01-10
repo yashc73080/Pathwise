@@ -118,7 +118,8 @@ export default function RoutePanel() {
 
     // Route list component with drag-and-drop using renderClone for proper portal behavior
     const RouteList = () => {
-        // Render function for both the in-place item and the dragging clone
+        // Render function for both the in-place item and the dragging clone 
+        // TODO: fix for mobile
         const renderDraggableItem = (provided, snapshot, location, index) => (
             <div
                 ref={provided.innerRef}

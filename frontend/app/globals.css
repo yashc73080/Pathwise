@@ -12,15 +12,30 @@
   --pathwise-warning: #f59e0b;
   --pathwise-error: #ef4444;
 
+  /* Light mode colors */
   --background: #ffffff;
   --foreground: #171717;
+  --surface: #f8fafc;
+  --surface-secondary: #f1f5f9;
+  --border: #e2e8f0;
+  --border-secondary: #cbd5e1;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  /* Dark mode colors */
+  --pathwise-surface: #1e293b;
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --surface: #1e293b;
+  --surface-secondary: #334155;
+  --border: #334155;
+  --border-secondary: #475569;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
 }
 
 body {
@@ -44,6 +59,11 @@ body {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+.dark .skeleton {
+  background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%);
+  background-size: 200% 100%;
 }
 
 /* Fade in animation */
@@ -90,13 +110,25 @@ body {
   border-radius: 3px;
 }
 
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 3px;
 }
 
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #a1a1a1;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 
 /* Focus visible for accessibility */
@@ -129,6 +161,12 @@ body {
   font-family: inherit;
   overflow: hidden;
   z-index: 9999;
+  background-color: #ffffff;
+}
+
+.dark .pac-container {
+  background-color: #1e293b;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .pac-item {
@@ -138,6 +176,12 @@ body {
   cursor: pointer;
   font-size: 14px;
   line-height: 1.4;
+  color: #374151;
+}
+
+.dark .pac-item {
+  border-bottom-color: #334155;
+  color: #e2e8f0;
 }
 
 .pac-item:last-child {
@@ -149,6 +193,11 @@ body {
   background-color: #f8fafc;
 }
 
+.dark .pac-item:hover,
+.dark .pac-item-selected {
+  background-color: #334155;
+}
+
 .pac-icon {
   margin-right: 12px;
 }
@@ -157,6 +206,10 @@ body {
   font-weight: 500;
   color: #1f2937;
   font-size: 14px;
+}
+
+.dark .pac-item-query {
+  color: #f1f5f9;
 }
 
 .pac-matched {

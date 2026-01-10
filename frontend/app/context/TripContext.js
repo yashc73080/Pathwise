@@ -35,6 +35,136 @@ export function TripProvider({ children }) {
 
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
+    // Track if we've already restored from localStorage to prevent duplicate restoration
+    // Also controls when saves are allowed (only after restore attempt)
+    const hasRestoredRef = useRef(false);
+
+    // Save itinerary state to localStorage whenever it changes
+    useEffect(() => {
+        // Don't save until restore has been attempted (prevents overwriting saved data on initial load)
+        if (!hasRestoredRef.current) return;
+
+        const stateToSave = {
+            selectedLocations: selectedLocations.map(loc => ({
+                name: loc.name,
+                lat: loc.lat,
+                lng: loc.lng,
+                address: loc.address || '',
+                placeId: loc.placeId || null
+            })),
+            optimizedRoute,
+            startIndex,
+            endIndex,
+            weatherData,
+            currentChatSessionId
+        };
+
+        localStorage.setItem('pathwise_itinerary', JSON.stringify(stateToSave));
+    }, [selectedLocations, optimizedRoute, startIndex, endIndex, weatherData, currentChatSessionId]);
+
+    // Restore itinerary state from localStorage when map is ready
+    useEffect(() => {
+        if (!map || !mapLoaded || hasRestoredRef.current) return;
+
+        // Mark restore as attempted (allows saving to begin)
+        hasRestoredRef.current = true;
+
+        const savedState = localStorage.getItem('pathwise_itinerary');
+        if (!savedState) return;
+
+        try {
+            const parsed = JSON.parse(savedState);
+
+            // Only restore if there are locations saved
+            if (!parsed.selectedLocations || parsed.selectedLocations.length === 0) return;
+
+            // Create a map from original index to route position for numbering (if optimized route exists)
+            const routePositionMap = {};
+            if (parsed.optimizedRoute) {
+                parsed.optimizedRoute.forEach((originalIndex, routePosition) => {
+                    routePositionMap[originalIndex] = routePosition + 1;
+                });
+            }
+
+            // Restore locations and create markers
+            const restoredLocations = parsed.selectedLocations.map((loc, index) => {
+                const routeNumber = routePositionMap[index];
+                const marker = new window.google.maps.Marker({
+                    map: map,
+                    position: { lat: loc.lat, lng: loc.lng },
+                    title: loc.name,
+                    label: routeNumber ? {
+                        text: String(routeNumber),
+                        color: 'white',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                    } : null,
+                    icon: routeNumber ? {
+                        path: window.google.maps.SymbolPath.CIRCLE,
+                        scale: 12,
+                        fillColor: '#2563eb',
+                        fillOpacity: 1,
+                        strokeColor: '#1e40af',
+                        strokeWeight: 2
+                    } : {
+                        url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                    }
+                });
+                return { ...loc, marker };
+            });
+
+            setSelectedLocations(restoredLocations);
+
+            if (parsed.optimizedRoute) {
+                setOptimizedRoute(parsed.optimizedRoute);
+
+                // Re-draw polyline
+                const routeCoordinates = parsed.optimizedRoute.map(index => ({
+                    lat: restoredLocations[index].lat,
+                    lng: restoredLocations[index].lng
+                }));
+
+                // Only complete the cycle if no end_index is specified
+                if (parsed.endIndex === undefined || parsed.endIndex === null) {
+                    routeCoordinates.push(routeCoordinates[0]);
+                }
+
+                const newPolyline = new window.google.maps.Polyline({
+                    path: routeCoordinates,
+                    geodesic: true,
+                    strokeColor: '#FF0000',
+                    strokeOpacity: 1.0,
+                    strokeWeight: 2,
+                    map: map
+                });
+
+                setRoutePolyline(newPolyline);
+
+                // Fit bounds to show the route
+                const bounds = new window.google.maps.LatLngBounds();
+                routeCoordinates.forEach(coord => bounds.extend(coord));
+                map.fitBounds(bounds);
+            } else {
+                // Just fit bounds to show all locations
+                if (restoredLocations.length > 0) {
+                    const bounds = new window.google.maps.LatLngBounds();
+                    restoredLocations.forEach(loc => bounds.extend({ lat: loc.lat, lng: loc.lng }));
+                    map.fitBounds(bounds);
+                }
+            }
+
+            if (parsed.startIndex !== undefined) setStartIndex(parsed.startIndex);
+            if (parsed.endIndex !== undefined) setEndIndex(parsed.endIndex);
+            if (parsed.weatherData) setWeatherData(parsed.weatherData);
+            if (parsed.currentChatSessionId) setCurrentChatSessionId(parsed.currentChatSessionId);
+
+            toast.success('Previous itinerary restored');
+        } catch (error) {
+            console.error('Error restoring itinerary from localStorage:', error);
+        }
+    }, [map, mapLoaded]);
+
+
     // Load Google Maps Script
     useEffect(() => {
         if (window.google?.maps) {
@@ -352,11 +482,11 @@ export function TripProvider({ children }) {
         const baseUrl = "https://www.google.com/maps/dir/";
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-        // On mobile, include address for more accurate results
-        // On web, just use name (it works better with Google's search)
+        // Always use name + address for meaningful location names in Google Maps
+        // (coordinates result in "Dropped pin" which isn't useful to users)
         const waypoints = optimizedCoords
             .map(loc => {
-                if (isMobile && loc.address) {
+                if (loc.address) {
                     return encodeURIComponent(`${loc.name}, ${loc.address}`);
                 }
                 return encodeURIComponent(loc.name);
@@ -372,6 +502,64 @@ export function TripProvider({ children }) {
             window.open(googleMapsUrl, '_blank');
         }
         toast.success("Opening in Google Maps!");
+    };
+
+    // Reorder the optimized route (for manual adjustments after optimization)
+    const reorderOptimizedRoute = (sourceIndex, destinationIndex) => {
+        if (!optimizedRoute || !optimizedCoords) return;
+
+        // Create new ordered array based on current optimizedCoords
+        const newOptimizedCoords = Array.from(optimizedCoords);
+        const [moved] = newOptimizedCoords.splice(sourceIndex, 1);
+        newOptimizedCoords.splice(destinationIndex, 0, moved);
+
+        // Find the original indices that correspond to the new order
+        const newOptimizedRoute = newOptimizedCoords.map(coord => {
+            return selectedLocations.findIndex(loc =>
+                loc.lat === coord.lat && loc.lng === coord.lng && loc.name === coord.name
+            );
+        });
+
+        setOptimizedRoute(newOptimizedRoute);
+
+        // Update marker labels to reflect new order
+        newOptimizedRoute.forEach((originalIndex, routePosition) => {
+            const location = selectedLocations[originalIndex];
+            if (location?.marker) {
+                location.marker.setLabel({
+                    text: String(routePosition + 1),
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                });
+            }
+        });
+
+        // Redraw polyline with new order
+        if (routePolyline) {
+            routePolyline.setMap(null);
+        }
+
+        const routeCoordinates = newOptimizedRoute.map(index => ({
+            lat: selectedLocations[index].lat,
+            lng: selectedLocations[index].lng
+        }));
+
+        // Only complete the cycle if no end_index is specified
+        if (endIndex === null) {
+            routeCoordinates.push(routeCoordinates[0]);
+        }
+
+        const newPolyline = new window.google.maps.Polyline({
+            path: routeCoordinates,
+            geodesic: true,
+            strokeColor: '#FF0000',
+            strokeOpacity: 1.0,
+            strokeWeight: 2,
+            map: map
+        });
+
+        setRoutePolyline(newPolyline);
     };
 
     const loadTrip = (trip) => {
@@ -525,6 +713,7 @@ export function TripProvider({ children }) {
         setEndLocation,
         optimizedCoords,
         exportToGoogleMaps,
+        reorderOptimizedRoute,
         loadTrip,
         activePanel,
         setActivePanel,

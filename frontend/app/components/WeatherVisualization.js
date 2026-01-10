@@ -51,21 +51,21 @@ export default function WeatherVisualization() {
     // Loading skeleton
     if (isLoadingWeather) {
         return (
-            <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
+            <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-xl">
                 <div className="flex items-center gap-2 mb-3">
-                    <div className="w-5 h-5 rounded-full bg-blue-200 animate-pulse"></div>
-                    <div className="h-4 w-32 bg-blue-200 rounded animate-pulse"></div>
+                    <div className="w-5 h-5 rounded-full bg-blue-200 dark:bg-blue-700 animate-pulse"></div>
+                    <div className="h-4 w-32 bg-blue-200 dark:bg-blue-700 rounded animate-pulse"></div>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-2">
                     {[...Array(7)].map((_, i) => (
                         <div
                             key={i}
-                            className="flex-shrink-0 w-16 bg-white rounded-lg p-2 shadow-sm animate-pulse"
+                            className="flex-shrink-0 w-16 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-sm animate-pulse"
                         >
-                            <div className="h-3 w-8 bg-gray-200 rounded mb-2 mx-auto"></div>
-                            <div className="w-8 h-8 bg-gray-200 rounded-full mx-auto mb-2"></div>
-                            <div className="h-3 w-10 bg-gray-200 rounded mx-auto mb-1"></div>
-                            <div className="h-2 w-8 bg-gray-200 rounded mx-auto"></div>
+                            <div className="h-3 w-8 bg-gray-200 dark:bg-gray-600 rounded mb-2 mx-auto"></div>
+                            <div className="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-full mx-auto mb-2"></div>
+                            <div className="h-3 w-10 bg-gray-200 dark:bg-gray-600 rounded mx-auto mb-1"></div>
+                            <div className="h-2 w-8 bg-gray-200 dark:bg-gray-600 rounded mx-auto"></div>
                         </div>
                     ))}
                 </div>
@@ -86,18 +86,18 @@ export default function WeatherVisualization() {
             {validRegions.map((region, regionIndex) => (
                 <div
                     key={regionIndex}
-                    className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm"
+                    className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-xl shadow-sm"
                 >
                     {/* Region Header */}
                     <div className="flex items-center gap-2 mb-3">
-                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
                         </svg>
-                        <h4 className="font-medium text-gray-800 text-sm">
+                        <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">
                             {region.regionName}
                         </h4>
                         {region.locationCount > 1 && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                                 ({region.locationCount} locations)
                             </span>
                         )}
@@ -113,10 +113,10 @@ export default function WeatherVisualization() {
                             return (
                                 <div
                                     key={dayIndex}
-                                    className="flex-shrink-0 w-16 bg-white rounded-lg p-2 shadow-sm hover:shadow-md transition-shadow text-center"
+                                    className="flex-shrink-0 w-16 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-sm hover:shadow-md transition-shadow text-center"
                                 >
                                     {/* Day of week */}
-                                    <p className="text-xs font-medium text-gray-600 mb-1">
+                                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                                         {dayIndex === 0 ? 'Today' : getDayOfWeek(day.date)}
                                     </p>
 
@@ -140,10 +140,10 @@ export default function WeatherVisualization() {
                                     </div>
 
                                     {/* Temperature */}
-                                    <p className="text-sm font-semibold text-gray-800">
+                                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                                         {toFahrenheit(day.maxTemp)}°
-                                        <span className="text-gray-400 font-normal"> / </span>
-                                        <span className="text-gray-500 font-normal">{toFahrenheit(day.minTemp)}°</span>
+                                        <span className="text-gray-400 dark:text-gray-500 font-normal"> / </span>
+                                        <span className="text-gray-500 dark:text-gray-400 font-normal">{toFahrenheit(day.minTemp)}°</span>
                                     </p>
 
                                     {/* Precipitation */}

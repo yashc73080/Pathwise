@@ -53,7 +53,7 @@ export default function MobileNav() {
 
     // Get initials for profile button
     const getInitials = () => {
-        if (!userLoggedIn) return '?';
+        if (!userLoggedIn) return null; // Will render user icon instead
         if (currentUser?.displayName) {
             return currentUser.displayName
                 .split(' ')
@@ -70,10 +70,16 @@ export default function MobileNav() {
             {/* Floating Profile Button */}
             <button
                 onClick={handleProfileClick}
-                className={`rounded-full shadow-lg flex items-center justify-center text-white font-medium transition-all duration-300 hover:scale-105 shrink-0 ${userLoggedIn ? 'bg-gradient-to-br from-blue-500 to-blue-700' : 'bg-gray-400'} ${isFullPanelOpen ? 'w-9 h-9 text-xs' : 'w-12 h-12 text-sm'}`}
+                className={`rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-105 shrink-0 ${userLoggedIn ? 'bg-gradient-to-br from-blue-500 to-blue-700 text-white font-medium' : 'bg-gray-400'} ${isFullPanelOpen ? 'w-9 h-9 text-xs' : 'w-12 h-12 text-sm'}`}
                 aria-label="Profile"
             >
-                {getInitials()}
+                {userLoggedIn ? (
+                    getInitials()
+                ) : (
+                    <svg className={`text-white ${isFullPanelOpen ? 'w-5 h-5' : 'w-6 h-6'}`} fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                    </svg>
+                )}
             </button>
 
             {/* Tab Group - fills remaining space */}

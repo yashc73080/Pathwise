@@ -62,6 +62,14 @@ export default function Sidebar() {
         }
     }, [optimizedRoute, currentUser]);
 
+    // Detect when new destinations are added after optimization - switch back to itinerary
+    const isRouteStale = optimizedCoords && selectedLocations.length > optimizedCoords.length;
+    useEffect(() => {
+        if (isRouteStale) {
+            setDesktopTab('itinerary');
+        }
+    }, [isRouteStale]);
+
     const handleDragEnd = (result) => {
         if (!result.destination) return;
         if (result.destination.index === result.source.index) return;
@@ -251,7 +259,7 @@ export default function Sidebar() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                             </svg>
                             Route
-                            {optimizedRoute && <span className="w-2 h-2 bg-green-500 rounded-full"></span>}
+                            {optimizedRoute && !isRouteStale && <span className="w-2 h-2 bg-green-500 rounded-full"></span>}
                         </button>
                     </div>
                 </div>
@@ -358,10 +366,15 @@ export default function Sidebar() {
                                 </button>
                                 <button
                                     onClick={exportToGoogleMaps}
-                                    className="flex-1 py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
+                                    className="flex-1 py-2.5 px-4 bg-white border border-gray-200 text-gray-700 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
+                                    title="Open in Google Maps"
                                 >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    <svg className="w-5 h-5" viewBox="0 0 92.3 132.3">
+                                        <path fill="#1a73e8" d="M60.2 2.2C55.8.8 51 0 46.1 0 32 0 19.3 6.4 10.8 16.5l21.8 18.3L60.2 2.2z" />
+                                        <path fill="#ea4335" d="M10.8 16.5C4.1 24.5 0 34.9 0 46.1c0 8.7 1.7 15.7 4.6 22l28-33.3-21.8-18.3z" />
+                                        <path fill="#4285f4" d="M46.2 28.5c9.8 0 17.7 7.9 17.7 17.7 0 4.3-1.6 8.3-4.2 11.4 0 0 13.9-16.6 27.5-32.7-5.6-10.8-15.3-19-27-22.7L32.6 34.8c3.3-3.8 8.1-6.3 13.6-6.3" />
+                                        <path fill="#fbbc04" d="M46.2 63.8c-9.8 0-17.7-7.9-17.7-17.7 0-4.3 1.5-8.3 4.1-11.3l-28 33.3c4.8 10.6 12.8 19.2 21 29.9l34.1-40.5c-3.3 3.9-8.1 6.3-13.5 6.3" />
+                                        <path fill="#34a853" d="M59.1 109.2c15.4-24.1 33.3-35 33.3-63 0-7.7-1.9-14.9-5.2-21.3L25.6 98c2.6 3.4 5.3 7.3 7.9 11.3 9.4 14.5 6.8 23.1 12.8 23.1s3.4-8.7 12.8-23.2" />
                                     </svg>
                                     Export
                                 </button>
@@ -448,10 +461,8 @@ function LocationList({ selectedLocations, handleDragEnd, startIndex, endIndex, 
                                                         }`}
                                                     title="Set as start"
                                                 >
-                                                    {/* Flag icon for start */}
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-                                                    </svg>
+                                                    {/* S for start */}
+                                                    <span className="w-4 h-4 flex items-center justify-center text-xs font-bold">S</span>
                                                 </button>
                                                 <button
                                                     onClick={() => setEndLocation(index)}
@@ -461,11 +472,8 @@ function LocationList({ selectedLocations, handleDragEnd, startIndex, endIndex, 
                                                         }`}
                                                     title="Set as end"
                                                 >
-                                                    {/* Location pin icon for end */}
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    </svg>
+                                                    {/* E for end */}
+                                                    <span className="w-4 h-4 flex items-center justify-center text-xs font-bold">E</span>
                                                 </button>
                                                 <button
                                                     onClick={() => removeLocation(index)}

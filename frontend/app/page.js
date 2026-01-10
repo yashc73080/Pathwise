@@ -16,9 +16,16 @@ import SavedTripsModal from './components/SavedTripsModal';
 
 // Mobile Optimize Button Component
 function MobileOptimizeButton() {
-  const { selectedLocations, submitItinerary, isSubmitting, setActivePanel, optimizedRoute } = useTrip();
+  const { selectedLocations, submitItinerary, isSubmitting, setActivePanel, optimizedRoute, optimizedCoords, activePanel } = useTrip();
 
-  if (selectedLocations.length < 2 || optimizedRoute) return null;
+  // Show when:
+  // - 2+ locations exist
+  // - No panel is open
+  // - Either no route optimized yet, OR more destinations added since last optimization
+  const hasNewDestinations = optimizedCoords ? selectedLocations.length > optimizedCoords.length : false;
+  const needsOptimization = !optimizedRoute || hasNewDestinations;
+
+  if (selectedLocations.length < 2 || !needsOptimization || activePanel !== 'none') return null;
 
   const handleOptimize = async () => {
     await submitItinerary();
@@ -31,7 +38,7 @@ function MobileOptimizeButton() {
       onClick={handleOptimize}
       disabled={isSubmitting}
       className={`
-        md:hidden fixed bottom-20 left-1/2 transform -translate-x-1/2 z-30
+        md:hidden fixed bottom-24 left-1/2 transform -translate-x-1/2 z-30
         px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full
         shadow-lg font-medium flex items-center gap-2
         transition-all duration-200

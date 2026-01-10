@@ -531,13 +531,13 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className={`p-3 rounded-lg font-medium transition-colors shrink-0 ${isLoading || !input.trim()
-              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
+            className={`w-[44px] h-[44px] rounded-lg flex items-center justify-center transition-all duration-200 shrink-0 ${isLoading || !input.trim()
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 active:scale-95'
               }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
             </svg>
           </button>
         </div>

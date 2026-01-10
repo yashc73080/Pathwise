@@ -352,11 +352,11 @@ export function TripProvider({ children }) {
         const baseUrl = "https://www.google.com/maps/dir/";
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-        // On mobile, include address for more accurate results
-        // On web, just use name (it works better with Google's search)
+        // Always use name + address for meaningful location names in Google Maps
+        // (coordinates result in "Dropped pin" which isn't useful to users)
         const waypoints = optimizedCoords
             .map(loc => {
-                if (isMobile && loc.address) {
+                if (loc.address) {
                     return encodeURIComponent(`${loc.name}, ${loc.address}`);
                 }
                 return encodeURIComponent(loc.name);
@@ -372,6 +372,64 @@ export function TripProvider({ children }) {
             window.open(googleMapsUrl, '_blank');
         }
         toast.success("Opening in Google Maps!");
+    };
+
+    // Reorder the optimized route (for manual adjustments after optimization)
+    const reorderOptimizedRoute = (sourceIndex, destinationIndex) => {
+        if (!optimizedRoute || !optimizedCoords) return;
+
+        // Create new ordered array based on current optimizedCoords
+        const newOptimizedCoords = Array.from(optimizedCoords);
+        const [moved] = newOptimizedCoords.splice(sourceIndex, 1);
+        newOptimizedCoords.splice(destinationIndex, 0, moved);
+
+        // Find the original indices that correspond to the new order
+        const newOptimizedRoute = newOptimizedCoords.map(coord => {
+            return selectedLocations.findIndex(loc =>
+                loc.lat === coord.lat && loc.lng === coord.lng && loc.name === coord.name
+            );
+        });
+
+        setOptimizedRoute(newOptimizedRoute);
+
+        // Update marker labels to reflect new order
+        newOptimizedRoute.forEach((originalIndex, routePosition) => {
+            const location = selectedLocations[originalIndex];
+            if (location?.marker) {
+                location.marker.setLabel({
+                    text: String(routePosition + 1),
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                });
+            }
+        });
+
+        // Redraw polyline with new order
+        if (routePolyline) {
+            routePolyline.setMap(null);
+        }
+
+        const routeCoordinates = newOptimizedRoute.map(index => ({
+            lat: selectedLocations[index].lat,
+            lng: selectedLocations[index].lng
+        }));
+
+        // Only complete the cycle if no end_index is specified
+        if (endIndex === null) {
+            routeCoordinates.push(routeCoordinates[0]);
+        }
+
+        const newPolyline = new window.google.maps.Polyline({
+            path: routeCoordinates,
+            geodesic: true,
+            strokeColor: '#FF0000',
+            strokeOpacity: 1.0,
+            strokeWeight: 2,
+            map: map
+        });
+
+        setRoutePolyline(newPolyline);
     };
 
     const loadTrip = (trip) => {
@@ -525,6 +583,7 @@ export function TripProvider({ children }) {
         setEndLocation,
         optimizedCoords,
         exportToGoogleMaps,
+        reorderOptimizedRoute,
         loadTrip,
         activePanel,
         setActivePanel,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useDraggablePanel } from '../hooks/useDraggablePanel';
 import { useTrip } from '../context/TripContext';
 import { useAuth } from '../context/authContext';
@@ -18,7 +19,6 @@ export default function Sidebar() {
         submitItinerary,
         isSubmitting,
         clearAllLocations,
-        reorderLocations,
         startIndex,
         endIndex,
         setStartLocation,
@@ -28,6 +28,7 @@ export default function Sidebar() {
         optimizedRoute,
         optimizedCoords,
         exportToGoogleMaps,
+        reorderOptimizedRoute,
         sidebarHeight,
         setSidebarHeight,
         currentChatSessionId
@@ -70,10 +71,10 @@ export default function Sidebar() {
         }
     }, [isRouteStale]);
 
-    const handleDragEnd = (result) => {
+    const handleRouteDragEnd = (result) => {
         if (!result.destination) return;
         if (result.destination.index === result.source.index) return;
-        reorderLocations(result.source.index, result.destination.index);
+        reorderOptimizedRoute(result.source.index, result.destination.index);
     };
 
     const handleClose = () => {
@@ -192,7 +193,6 @@ export default function Sidebar() {
                     ) : (
                         <LocationList
                             selectedLocations={selectedLocations}
-                            handleDragEnd={handleDragEnd}
                             startIndex={startIndex}
                             endIndex={endIndex}
                             setStartLocation={setStartLocation}
@@ -273,7 +273,6 @@ export default function Sidebar() {
                             ) : (
                                 <LocationList
                                     selectedLocations={selectedLocations}
-                                    handleDragEnd={handleDragEnd}
                                     startIndex={startIndex}
                                     endIndex={endIndex}
                                     setStartLocation={setStartLocation}
@@ -286,16 +285,47 @@ export default function Sidebar() {
                         /* Optimized Route View */
                         <div className="p-4">
                             {optimizedRoute && optimizedCoords ? (
-                                <div className="space-y-2">
-                                    {optimizedCoords.map((location, i) => (
-                                        <div key={i} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                                            <span className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm">
-                                                {i + 1}
-                                            </span>
-                                            <span className="text-gray-700 flex-1 truncate">{location.name}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                                <DragDropContext onDragEnd={handleRouteDragEnd}>
+                                    <Droppable droppableId="optimized-route">
+                                        {(provided) => (
+                                            <div
+                                                {...provided.droppableProps}
+                                                ref={provided.innerRef}
+                                                className="space-y-2"
+                                            >
+                                                {optimizedCoords.map((location, i) => (
+                                                    <Draggable key={`route-${i}`} draggableId={`route-${i}`} index={i}>
+                                                        {(provided, snapshot) => {
+                                                            const child = (
+                                                                <div
+                                                                    ref={provided.innerRef}
+                                                                    {...provided.draggableProps}
+                                                                    {...provided.dragHandleProps}
+                                                                    className={`flex items-center gap-3 p-2 bg-gray-50 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${snapshot.isDragging ? 'shadow-lg scale-[1.02] bg-blue-50' : ''
+                                                                        }`}
+                                                                >
+                                                                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                                                                    </svg>
+                                                                    <span className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm">
+                                                                        {i + 1}
+                                                                    </span>
+                                                                    <span className="text-gray-700 flex-1 truncate">{location.name}</span>
+                                                                </div>
+                                                            );
+                                                            // Use portal when dragging to fix offset issues in scrollable containers
+                                                            if (snapshot.isDragging) {
+                                                                return createPortal(child, document.body);
+                                                            }
+                                                            return child;
+                                                        }}
+                                                    </Draggable>
+                                                ))}
+                                                {provided.placeholder}
+                                            </div>
+                                        )}
+                                    </Droppable>
+                                </DragDropContext>
                             ) : (
                                 <div className="text-center py-8 text-gray-500">
                                     <p>No optimized route yet</p>
@@ -400,102 +430,66 @@ function EmptyState() {
     );
 }
 
-// LocationList component
-function LocationList({ selectedLocations, handleDragEnd, startIndex, endIndex, setStartLocation, setEndLocation, removeLocation }) {
+// LocationList component (no drag-and-drop, just display)
+function LocationList({ selectedLocations, startIndex, endIndex, setStartLocation, setEndLocation, removeLocation }) {
     return (
-        <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="locations">
-                {(provided) => (
-                    <div
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                        className="p-3 space-y-2"
-                    >
-                        {selectedLocations.map((location, index) => (
-                            <Draggable key={index} draggableId={`location-${index}`} index={index}>
-                                {(provided, snapshot) => (
-                                    <div
-                                        ref={provided.innerRef}
-                                        {...provided.draggableProps}
-                                        className={`
-                                            bg-gray-50 rounded-lg p-2.5 border transition-all duration-200
-                                            ${snapshot.isDragging
-                                                ? 'shadow-lg border-blue-300 scale-[1.02]'
-                                                : 'border-gray-100 hover:border-blue-200 hover:shadow-sm'
-                                            }
-                                        `}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            {/* Drag handle */}
-                                            <div
-                                                {...provided.dragHandleProps}
-                                                className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-gray-200 rounded transition-colors shrink-0"
-                                                aria-label="Drag to reorder"
-                                            >
-                                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                                                </svg>
-                                            </div>
-
-                                            {/* Location info */}
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-1.5">
-                                                    <p className="font-medium text-gray-900 text-sm truncate">{location.name}</p>
-                                                    {startIndex === index && (
-                                                        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-800 rounded shrink-0">S</span>
-                                                    )}
-                                                    {endIndex === index && (
-                                                        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-800 rounded shrink-0">E</span>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-gray-500 truncate">{location.address}</p>
-                                            </div>
-
-                                            {/* Action buttons */}
-                                            <div className="flex gap-1 shrink-0">
-                                                <button
-                                                    onClick={() => setStartLocation(index)}
-                                                    className={`p-1.5 rounded transition-all ${startIndex === index
-                                                        ? 'bg-green-600 text-white'
-                                                        : 'bg-gray-100 text-gray-600 hover:bg-green-100'
-                                                        }`}
-                                                    title="Set as start"
-                                                >
-                                                    {/* S for start */}
-                                                    <span className="w-4 h-4 flex items-center justify-center text-xs font-bold">S</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => setEndLocation(index)}
-                                                    className={`p-1.5 rounded transition-all ${endIndex === index
-                                                        ? 'bg-red-600 text-white'
-                                                        : 'bg-gray-100 text-gray-600 hover:bg-red-100'
-                                                        }`}
-                                                    title="Set as end"
-                                                >
-                                                    {/* E for end */}
-                                                    <span className="w-4 h-4 flex items-center justify-center text-xs font-bold">E</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => removeLocation(index)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
-                                                    aria-label="Remove location"
-                                                >
-                                                    {/* Trash icon for remove */}
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
+        <div className="p-3 space-y-2">
+            {selectedLocations.map((location, index) => (
+                <div
+                    key={index}
+                    className="bg-gray-50 rounded-lg p-2.5 border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all duration-200"
+                >
+                    <div className="flex items-center gap-2">
+                        {/* Location info */}
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                                <p className="font-medium text-gray-900 text-sm truncate">{location.name}</p>
+                                {startIndex === index && (
+                                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-800 rounded shrink-0">S</span>
                                 )}
-                            </Draggable>
-                        ))}
-                        {provided.placeholder}
+                                {endIndex === index && (
+                                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-800 rounded shrink-0">E</span>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-500 truncate">{location.address}</p>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex gap-1 shrink-0">
+                            <button
+                                onClick={() => setStartLocation(index)}
+                                className={`p-1.5 rounded transition-all ${startIndex === index
+                                    ? 'bg-green-600 text-white'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-green-100'
+                                    }`}
+                                title="Set as start"
+                            >
+                                <span className="w-4 h-4 flex items-center justify-center text-xs font-bold">S</span>
+                            </button>
+                            <button
+                                onClick={() => setEndLocation(index)}
+                                className={`p-1.5 rounded transition-all ${endIndex === index
+                                    ? 'bg-red-600 text-white'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-red-100'
+                                    }`}
+                                title="Set as end"
+                            >
+                                <span className="w-4 h-4 flex items-center justify-center text-xs font-bold">E</span>
+                            </button>
+                            <button
+                                onClick={() => removeLocation(index)}
+                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
+                                aria-label="Remove location"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
-                )}
-            </Droppable>
-        </DragDropContext>
+                </div>
+            ))}
+        </div>
     );
 }
 

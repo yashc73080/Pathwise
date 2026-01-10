@@ -312,7 +312,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
         setCurrentChatSessionId(sessionId); // Sync with context for trip saving
       }
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
       // Serialize locations to JSON to preserve coordinates
       const locationsData = selectedLocations.map(loc => ({
         name: loc.name,

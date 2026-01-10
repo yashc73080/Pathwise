@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "pathwise-482822"
-  }
+  },
+  "targets": {
+    "pathwise-482822": {
+      "hosting": {
+        "prod": [
+          "pathwise"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

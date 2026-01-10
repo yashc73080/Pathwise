@@ -192,6 +192,8 @@ Now any code changes will hot-reload on your device!
 
 **⚠️ Remember:** Remove the `server` block from `capacitor.config.ts` for production builds.
 
+---
+
 #### 5. Deployment
 
 Deploy both frontend and backend to Firebase and Google Cloud Run respectively.

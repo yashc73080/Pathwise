@@ -1,0 +1,41 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**' # Only trigger if backend files change
+
+env:
+  PROJECT_ID: pathwise-482822 # Project ID
+  REGION: us-central1         # Cloud Run Region
+  SERVICE: pathwise-backend   # Service Name
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Authenticate with Google Cloud using your Secret Key
+      - name: Google Auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+      # Deploy to Cloud Run (Source Deploy)
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          source: ./backend
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          project_id: ${{ env.PROJECT_ID }}
+          # Note: Env vars for the running service are already set in Cloud Run Dashboard

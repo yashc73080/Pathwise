@@ -11,7 +11,9 @@ import { useDraggablePanel } from '../hooks/useDraggablePanel';
 export default function RoutePanel() {
     const { optimizedRoute, selectedLocations, optimizedCoords, exportToGoogleMaps, startIndex, endIndex, activePanel, setActivePanel, routeHeight, setRouteHeight, currentChatSessionId } = useTrip();
     const { userLoggedIn, currentUser, openLoginModal } = useAuth();
+
     const [isSaving, setIsSaving] = useState(false);
+    const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
     // Draggable panel hook for mobile resizing
     const { panelRef, handleDragStart } = useDraggablePanel({
@@ -32,7 +34,13 @@ export default function RoutePanel() {
             console.log('Optimized Route in RoutePanel:', optimizedRoute);
             console.log('Optimized Coordinates in RoutePanel:', optimizedCoords);
         }
-    }, [optimizedRoute]);
+        if (optimizedRoute) {
+            console.log('Selected Locations:', selectedLocations);
+            console.log('Optimized Route in RoutePanel:', optimizedRoute);
+            console.log('Optimized Coordinates in RoutePanel:', optimizedCoords);
+            if (!currentUser) setShowSignInPrompt(true);
+        }
+    }, [optimizedRoute, currentUser]);
 
     const handleSaveTrip = async () => {
         if (!userLoggedIn) {
@@ -138,7 +146,15 @@ export default function RoutePanel() {
 
                 <div className="p-4 border-b flex justify-between items-center">
                     <h3 className="font-semibold text-gray-900">Optimized Route</h3>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
+                        {showSignInPrompt && !currentUser && (
+                            <button
+                                onClick={openLoginModal}
+                                className="mr-2 px-3 py-1.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full animate-pulse hover:bg-blue-200"
+                            >
+                                Sign In to Save
+                            </button>
+                        )}
                         {optimizedRoute && (
                             <>
                                 <button

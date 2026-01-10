@@ -215,7 +215,11 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
     }
   }, [newChatTrigger]);
 
+  // Watch for valuable content to trigger sign-in prompt
+
+
   const loadMostRecentSession = async () => {
+    if (!currentUser) return;
     try {
       const token = await currentUser.getIdToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/chat/sessions`, {
@@ -244,6 +248,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
   }, [showHistory, currentUser]);
 
   const fetchSessions = async () => {
+    if (!currentUser) return;
     try {
       const token = await currentUser.getIdToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/chat/sessions`, {

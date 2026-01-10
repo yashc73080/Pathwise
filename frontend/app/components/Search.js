@@ -180,7 +180,7 @@ export default function Search() {
                         id="pac-input"
                         className="flex-1 p-2.5 bg-transparent border-none focus:ring-0 focus:outline-none text-gray-900 placeholder-gray-400"
                         type="text"
-                        placeholder="Search for a location"
+                        placeholder="Search for a location or click on the map"
                         aria-label="Search for a location"
                     />
                 </div>

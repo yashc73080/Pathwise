@@ -8,10 +8,7 @@ export default function MobileNav() {
     const { userLoggedIn, openLoginModal, currentUser, openSavedTripsModal } = useAuth();
 
     const handleTabClick = (panel) => {
-        if (panel === 'chat' && !userLoggedIn) {
-            openLoginModal();
-            return;
-        }
+
 
         // Toggle panel off if already active, otherwise switch to it
         if (activePanel === panel) {

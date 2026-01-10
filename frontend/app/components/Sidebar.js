@@ -38,6 +38,7 @@ export default function Sidebar() {
     // Desktop tab: 'itinerary' | 'route'
     const [desktopTab, setDesktopTab] = useState('itinerary');
     const [isSaving, setIsSaving] = useState(false);
+    const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
     // Draggable panel hook
     const { panelRef, handleDragStart } = useDraggablePanel({
@@ -55,8 +56,11 @@ export default function Sidebar() {
     useEffect(() => {
         if (optimizedRoute) {
             setDesktopTab('route');
+            if (!currentUser) {
+                setShowSignInPrompt(true);
+            }
         }
-    }, [optimizedRoute]);
+    }, [optimizedRoute, currentUser]);
 
     const handleDragEnd = (result) => {
         if (!result.destination) return;
@@ -299,31 +303,60 @@ export default function Sidebar() {
                 ) : (
                     /* Route tab actions */
                     optimizedRoute && (
-                        <div className="p-4 border-t bg-gray-50 rounded-b-lg flex gap-2">
-                            <button
-                                onClick={handleSaveTrip}
-                                disabled={isSaving}
-                                className={`flex-1 py-2.5 px-4 bg-green-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-green-700 transition-colors ${isSaving ? 'opacity-75 cursor-not-allowed' : ''
-                                    }`}
-                            >
-                                {isSaving ? (
-                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                ) : (
+                        <div className="p-4 border-t bg-gray-50 rounded-b-lg flex flex-col gap-2">
+                            {showSignInPrompt && !currentUser && (
+                                <div className="mb-2 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center shadow-sm animate-slide-up">
+                                    <div className="flex-1">
+                                        <p className="text-sm text-blue-800 font-medium">✨ Trip optimized!</p>
+                                        <p className="text-xs text-blue-600 mt-0.5">Sign in to save this trip.</p>
+                                    </div>
+                                    <div className="flex gap-2 ml-3">
+                                        <button
+                                            onClick={() => setShowSignInPrompt(false)}
+                                            className="text-blue-400 hover:text-blue-600 p-1"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                openLoginModal();
+                                                setShowSignInPrompt(false);
+                                            }}
+                                            className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
+                                        >
+                                            Sign In
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleSaveTrip}
+                                    disabled={isSaving}
+                                    className={`flex-1 py-2.5 px-4 bg-green-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-green-700 transition-colors ${isSaving ? 'opacity-75 cursor-not-allowed' : ''
+                                        }`}
+                                >
+                                    {isSaving ? (
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                        </svg>
+                                    )}
+                                    Save
+                                </button>
+                                <button
+                                    onClick={exportToGoogleMaps}
+                                    className="flex-1 py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
+                                >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                     </svg>
-                                )}
-                                Save
-                            </button>
-                            <button
-                                onClick={exportToGoogleMaps}
-                                className="flex-1 py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
-                                Export
-                            </button>
+                                    Export
+                                </button>
+                            </div>
                         </div>
                     )
                 )}

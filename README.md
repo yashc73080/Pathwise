@@ -87,12 +87,6 @@ cd frontend
 
 # Install dependencies
 npm install
-
-# Create .env.local with your credentials
-# NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_key_here
-# NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
-# NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_key
-# (and other Firebase config vars)
 ```
 
 ### Run the Application
@@ -107,108 +101,25 @@ python app.py
 
 **Start the frontend** (in `frontend/` directory):
 ```bash
-npm run dev
+npm run dev # for web
+npm run dev -- -H 0.0.0.0 # for mobile browser testing
 ```
 
 Visit [http://localhost:3000](http://localhost:3000) to use the app.
 
 ---
 
-#### 2. Mobile Browser Testing (No App Install Required)
-
-Test on your phone by accessing the dev server over your local network:
-
-**Start the backend:**
-```bash
-cd backend
-conda activate trip
-python app.py  # Runs on 0.0.0.0:5000
-```
-
-**Start the frontend with network access:**
-```bash
-cd frontend
-npm run dev -- -H 0.0.0.0
-```
-
-**On your phone:**
-1. Connect to the same WiFi as your computer
-2. Find your computer's IP address:
-   - Windows: `ipconfig` → look for IPv4 Address
-   - Mac/Linux: `ifconfig` or `ip addr`
-3. Visit `http://YOUR_COMPUTER_IP:3000` in your phone's browser
-
-**⚠️ Note:** Make sure `frontend/.env.local` has:
-```
-NEXT_PUBLIC_BACKEND_URL=http://YOUR_COMPUTER_IP:5000
-```
-
 ---
 
-#### 3. Capacitor Native App (Production Build)
+## 📖 Development & Testing
 
-Build and run as a native Android/iOS app:
+For detailed instructions on:
+- Mobile browser testing
+- Running as a native app with **Capacitor**
+- Live Reload development
+- Deployment to Cloud Run & Firebase
 
-```bash
-cd frontend
-
-# Build the web app
-npm run build
-
-# Sync to native projects
-npx cap sync
-
-# Open in IDE
-npx cap open android  # Opens Android Studio
-npx cap open ios      # Opens Xcode (Mac only)
-```
-
-Then click **Run** in Android Studio/Xcode.
-
-**For Android Emulator:** Update `.env.local` to use `10.0.2.2` instead of `localhost`:
-```
-NEXT_PUBLIC_BACKEND_URL=http://10.0.2.2:5000
-```
-
----
-
-#### 4. Capacitor Live Reload (Fast Development)
-
-Edit and see changes instantly on your phone without rebuilding:
-
-**1. Start the dev server:**
-```bash
-cd frontend
-npm run dev -- -H 0.0.0.0
-```
-
-**2. Sync and run:**
-```bash
-npx cap sync
-npx cap open android  # Then click Run in Android Studio
-```
-
-Now any code changes will hot-reload on your device!
-
-**⚠️ Remember:** Remove the `server` block from `capacitor.config.ts` for production builds.
-
----
-
-#### 5. Deployment
-
-Deploy both frontend and backend to Firebase and Google Cloud Run respectively.
-
-**Frontend:**
-```bash
-npm run build
-firebase deploy
-```
-
-**Backend:**
-```bash
-gcloud run deploy pathwise-backend --source .
-```
-Select `[35] us-central1` as the region.
+Please refer to [notes.md](./notes.md).
 
 ---
 

@@ -144,20 +144,29 @@ export default function Sidebar() {
                     transition-all duration-300 ease-in-out
                     ${isMobileVisible ? 'translate-y-0' : 'translate-y-full'}
                     ${sidebarHeight === 'full' ? 'h-[75vh]' : 'h-[40vh]'}
-                    pb-20
+                    pb-12
                 `}
             >
-                {/* Drag Handle */}
+                {/* Centered Drag Pill */}
                 <div
-                    className="flex justify-center py-6 cursor-grab active:cursor-grabbing touch-none w-full"
+                    className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing touch-none"
                     onMouseDown={handleDragStart}
                     onTouchStart={handleDragStart}
                 >
-                    <div className="w-16 h-1.5 bg-gray-300 rounded-full active:bg-gray-400 transition-colors"></div>
+                    <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
                 </div>
 
-                <div className="p-4 border-b flex justify-between items-center">
-                    <h2 className="text-xl font-semibold text-gray-900">Your Itinerary</h2>
+                {/* Header Row - left side draggable, right side button */}
+                <div className="px-4 pb-2 flex items-center border-b">
+                    {/* Draggable area - title */}
+                    <div
+                        className="flex-1 cursor-grab active:cursor-grabbing touch-none"
+                        onMouseDown={handleDragStart}
+                        onTouchStart={handleDragStart}
+                    >
+                        <h2 className="text-lg font-semibold text-gray-900">Your Itinerary</h2>
+                    </div>
+                    {/* Close button - not draggable */}
                     <button
                         onClick={handleClose}
                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -474,35 +483,35 @@ function LocationList({ selectedLocations, handleDragEnd, startIndex, endIndex, 
 // ActionButtons component
 function ActionButtons({ selectedLocations, submitItinerary, isSubmitting, clearAllLocations }) {
     return (
-        <div className="p-4 border-t bg-gray-50 rounded-b-lg">
+        <div className="p-3 border-t bg-gray-50 rounded-b-lg">
             {selectedLocations.length > 0 && (
-                <>
+                <div className="flex gap-2">
                     <button
                         onClick={submitItinerary}
                         disabled={isSubmitting}
-                        className={`w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium shadow-sm hover:from-blue-700 hover:to-blue-800 transition-all ${isSubmitting ? 'opacity-75 cursor-not-allowed' : 'hover:shadow-md'
+                        className={`flex-1 py-2 px-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium text-sm shadow-sm hover:from-blue-700 hover:to-blue-800 transition-all ${isSubmitting ? 'opacity-75 cursor-not-allowed' : 'hover:shadow-md'
                             }`}
                     >
                         {isSubmitting ? (
                             <div className="flex items-center justify-center gap-2">
-                                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                 </svg>
                                 Optimizing...
                             </div>
                         ) : (
-                            'Optimize Route'
+                            'Optimize'
                         )}
                     </button>
 
                     <button
                         onClick={clearAllLocations}
-                        className="w-full mt-2 py-2 px-4 text-gray-500 hover:text-red-600 text-sm transition-colors hover:bg-red-50 rounded-lg"
+                        className="py-2 px-3 text-gray-500 hover:text-red-600 text-sm transition-colors hover:bg-red-50 rounded-lg border border-gray-200"
                     >
-                        Clear All
+                        Clear
                     </button>
-                </>
+                </div>
             )}
         </div>
     );

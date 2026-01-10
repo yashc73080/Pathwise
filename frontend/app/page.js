@@ -62,7 +62,7 @@ export default function Page() {
   return (
     <AuthProvider>
       <TripProvider>
-        <div className="flex h-screen w-screen overflow-hidden">
+        <div className="flex h-[100dvh] w-screen overflow-hidden">
           {/* Main Content Container */}
           <div className="flex-1 flex relative">
             {/* Map Container */}

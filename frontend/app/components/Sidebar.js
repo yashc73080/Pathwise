@@ -139,9 +139,9 @@ export default function Sidebar() {
                     inset-x-0 bottom-0 rounded-t-2xl
                     transition-all duration-300 ease-in-out
                     ${isMobileVisible ? 'translate-y-0' : 'translate-y-full'}
-                    ${sidebarHeight === 'full' ? 'h-[85vh]' : 'h-[40vh]'}
+                    ${sidebarHeight === 'full' ? 'h-[75vh]' : 'h-[40vh]'}
+                    pb-20
                 `}
-                style={{ paddingBottom: '4rem' }}
             >
                 {/* Drag Handle */}
                 <div

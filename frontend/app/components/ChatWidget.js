@@ -51,7 +51,7 @@ export default function ChatWidget() {
                 return 'h-[40vh]';
             case 'full':
             default:
-                return 'h-[85vh]';
+                return 'h-[75vh]';
         }
     };
 
@@ -78,10 +78,11 @@ export default function ChatWidget() {
             <div
                 ref={panelRef}
                 className={`
-                md:hidden fixed left-0 right-0 bottom-[72px] z-40 bg-white rounded-t-2xl shadow-xl flex flex-col
+                md:hidden fixed left-0 right-0 bottom-0 z-40 bg-white rounded-t-2xl shadow-xl flex flex-col
                 transition-all duration-300 ease-in-out
                 ${isMobileVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}
                 ${getMobileHeightClass()}
+                pb-20
             `}>
                 {/* Drag Handle */}
                 <div

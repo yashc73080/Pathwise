@@ -16,10 +16,6 @@ export default function ChatWidget() {
     const [newChatTrigger, setNewChatTrigger] = useState(0);
 
     const toggleChat = () => {
-        if (!userLoggedIn) {
-            openLoginModal();
-            return;
-        }
         setIsChatOpen(!isChatOpen);
         // Sync mobile panel state
         setActivePanel(isChatOpen ? 'none' : 'chat');
@@ -54,23 +50,6 @@ export default function ChatWidget() {
                 return 'h-[75vh]';
         }
     };
-
-    if (!userLoggedIn) {
-        return (
-            <div className="hidden md:flex absolute bottom-4 right-4 flex-col items-end z-10">
-                <button
-                    onClick={openLoginModal}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-lg shadow-lg hover:bg-gray-700 flex items-center gap-2 transition-all duration-200 hover:scale-105"
-                    aria-label="Login to access AI chat"
-                >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    <span className="font-medium">Login to Chat</span>
-                </button>
-            </div>
-        );
-    }
 
     return (
         <>

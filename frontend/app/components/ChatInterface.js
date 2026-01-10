@@ -136,16 +136,16 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
     return (
       <div
         onClick={handleOpenDetails}
-        className="bg-white border border-gray-200 rounded-lg p-2.5 md:p-3 mb-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+        className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2.5 md:p-3 mb-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
       >
         <div className="flex justify-between items-start gap-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-gray-900 text-sm truncate">{place.name}</h4>
-            <p className="text-xs text-gray-500 truncate">{place.address}</p>
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{place.name}</h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{place.address}</p>
             {place.rating && (
               <div className="flex items-center mt-0.5">
                 <span className="text-yellow-500 text-xs">★</span>
-                <span className="text-xs text-gray-600 ml-0.5">{place.rating}</span>
+                <span className="text-xs text-gray-600 dark:text-gray-400 ml-0.5">{place.rating}</span>
               </div>
             )}
           </div>
@@ -410,37 +410,37 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
     };
 
     return (
-      <div className="flex flex-col h-full bg-white">
-        <div className="p-3 border-b flex justify-between items-center bg-gray-50">
-          <h3 className="font-semibold text-gray-700">Chat History</h3>
+      <div className="flex flex-col h-full bg-white dark:bg-gray-800">
+        <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700">
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200">Chat History</h3>
           <button
             onClick={() => setShowHistory(false)}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
           >
             Close
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {sessions.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">No previous chats found.</div>
+            <div className="p-4 text-center text-gray-500 dark:text-gray-400">No previous chats found.</div>
           ) : (
             sessions.map(session => (
               <button
                 key={session.id}
                 onClick={() => loadSession(session.id)}
-                className="w-full text-left p-3 border-b hover:bg-gray-50 transition-colors"
+                className="w-full text-left p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                <div className="font-medium text-sm text-gray-900 truncate">
+                <div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
                   {getCleanPreview(session.lastMessage)}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {new Date(session.timestamp).toLocaleDateString()}
                 </div>
               </button>
             ))
           )}
         </div>
-        <div className="p-3 border-t">
+        <div className="p-3 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={startNewChat}
             className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
@@ -461,7 +461,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
         className="flex-1 overflow-y-auto space-y-4 mb-4 p-4"
       >
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm">
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm">
             <p>Start a conversation with Pathwise AI</p>
             <p className="mt-2 text-xs">Ask for recommendations, routes, or local tips.</p>
           </div>
@@ -481,7 +481,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
                 {/* Render Location Cards if places exist */}
                 {isAssistant && places && places.length > 0 && (
                   <div className="mb-2">
-                    <p className="text-xs text-gray-500 mb-2 font-medium">Suggested Locations:</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">Suggested Locations:</p>
                     {places.map((place, placeIndex) => (
                       <LocationCard key={placeIndex} place={place} />
                     ))}
@@ -493,7 +493,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
                   <div
                     className={`rounded-lg px-4 py-2 shadow-sm ${message.role === 'user'
                       ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-800'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                       }`}
                   >
                     <ReactMarkdown className="text-sm prose prose-sm max-w-none">
@@ -507,16 +507,16 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
         })}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 text-gray-500 rounded-lg px-4 py-2 text-sm flex items-center gap-2">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg px-4 py-2 text-sm flex items-center gap-2">
+              <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
           </div>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="p-3 border-t bg-white">
+      <form onSubmit={handleSubmit} className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="flex gap-2 items-end">
           <textarea
             ref={textareaRef}
@@ -524,7 +524,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask a question..."
-            className="flex-1 p-3 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none min-h-[44px] max-h-[120px] overflow-y-auto"
+            className="flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none min-h-[44px] max-h-[120px] overflow-y-auto placeholder-gray-400 dark:placeholder-gray-500"
             disabled={isLoading}
             rows={1}
           />
@@ -532,7 +532,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
             type="submit"
             disabled={isLoading || !input.trim()}
             className={`w-[44px] h-[44px] rounded-lg flex items-center justify-center transition-all duration-200 shrink-0 ${isLoading || !input.trim()
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
               : 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 active:scale-95'
               }`}
           >
@@ -541,7 +541,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
             </svg>
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-1.5 text-center">Press Enter to send, Shift+Enter for newline</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 text-center">Press Enter to send, Shift+Enter for newline</p>
       </form>
     </div>
   );

@@ -48,15 +48,15 @@ export default function LoginModal() {
 
     return (
         <div onClick={closeLoginModal} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm cursor-pointer">
-            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all cursor-default">
+            <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all cursor-default">
                 <div className="p-8">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-900">
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                             {isSigningIn ? 'Welcome Back' : 'Create Account'}
                         </h2>
                         <button
                             onClick={closeLoginModal}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                         >
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -66,24 +66,24 @@ export default function LoginModal() {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                             <input
                                 type="email"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-900"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
                                 placeholder="you@example.com"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
                             <input
                                 type="password"
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-900"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
                                 placeholder="••••••••"
                             />
                         </div>
@@ -108,27 +108,27 @@ export default function LoginModal() {
                     </form>
 
                     <div className="mt-6 flex items-center">
-                        <div className="flex-grow border-t border-gray-300"></div>
-                        <span className="flex-shrink-0 mx-4 text-gray-500 text-sm">Or continue with</span>
-                        <div className="flex-grow border-t border-gray-300"></div>
+                        <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                        <span className="flex-shrink-0 mx-4 text-gray-500 dark:text-gray-400 text-sm">Or continue with</span>
+                        <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
                     </div>
 
                     <button
                         onClick={handleGoogleSignIn}
                         disabled={loading}
-                        className="mt-6 w-full py-3 px-4 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium shadow-sm hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                        className="mt-6 w-full py-3 px-4 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
                     >
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
                         Google
                     </button>
 
-                    <div className="mt-6 text-center text-sm text-gray-600">
+                    <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
                         {isSigningIn ? (
                             <>
                                 Don&apos;t have an account?{' '}
                                 <button
                                     onClick={() => setIsSigningIn(false)}
-                                    className="text-blue-600 hover:text-blue-700 font-medium"
+                                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                                 >
                                     Sign Up
                                 </button>
@@ -138,7 +138,7 @@ export default function LoginModal() {
                                 Already have an account?{' '}
                                 <button
                                     onClick={() => setIsSigningIn(true)}
-                                    className="text-blue-600 hover:text-blue-700 font-medium"
+                                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                                 >
                                     Sign In
                                 </button>
@@ -150,3 +150,4 @@ export default function LoginModal() {
         </div>
     );
 }
+

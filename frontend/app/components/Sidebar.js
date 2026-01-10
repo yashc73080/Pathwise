@@ -135,10 +135,10 @@ export default function Sidebar() {
             {!isSidebarOpen && (
                 <button
                     onClick={() => setIsSidebarOpen(true)}
-                    className="hidden md:block absolute top-20 left-4 z-20 p-3 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-all duration-200 hover:scale-105"
+                    className="hidden md:block absolute top-20 left-4 z-20 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
                     aria-label="Open itinerary sidebar"
                 >
-                    <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                 </button>
@@ -148,7 +148,7 @@ export default function Sidebar() {
             <div
                 ref={panelRef}
                 className={`
-                    md:hidden fixed z-40 bg-white shadow-xl flex flex-col
+                    md:hidden fixed z-40 bg-white dark:bg-gray-900 shadow-xl flex flex-col
                     inset-x-0 bottom-0 rounded-t-2xl
                     transition-all duration-300 ease-in-out
                     ${isMobileVisible ? 'translate-y-0' : 'translate-y-full'}
@@ -162,26 +162,26 @@ export default function Sidebar() {
                     onMouseDown={handleDragStart}
                     onTouchStart={handleDragStart}
                 >
-                    <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
+                    <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
                 </div>
 
                 {/* Header Row - left side draggable, right side button */}
-                <div className="px-4 pb-2 flex items-center border-b">
+                <div className="px-4 pb-2 flex items-center border-b border-gray-200 dark:border-gray-700">
                     {/* Draggable area - title */}
                     <div
                         className="flex-1 cursor-grab active:cursor-grabbing touch-none"
                         onMouseDown={handleDragStart}
                         onTouchStart={handleDragStart}
                     >
-                        <h2 className="text-lg font-semibold text-gray-900">Your Itinerary</h2>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Your Itinerary</h2>
                     </div>
                     {/* Close button - not draggable */}
                     <button
                         onClick={handleClose}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                         aria-label="Close itinerary"
                     >
-                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
@@ -213,7 +213,7 @@ export default function Sidebar() {
             {/* Desktop: Floating left panel with tabs */}
             <div
                 className={`
-                    hidden md:flex absolute z-10 bg-white shadow-xl flex-col transition-all duration-300
+                    hidden md:flex absolute z-10 bg-white dark:bg-gray-900 shadow-xl flex-col transition-all duration-300
                     top-20 left-4 w-88 rounded-lg
                     ${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}
                 `}
@@ -221,13 +221,13 @@ export default function Sidebar() {
             >
                 {/* Header with close button */}
                 <div className="p-4 pb-2 flex justify-between items-center">
-                    <h2 className="text-lg font-semibold text-gray-900">Trip Planner</h2>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Trip Planner</h2>
                     <button
                         onClick={() => setIsSidebarOpen(false)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                         aria-label="Close sidebar"
                     >
-                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                     </button>
@@ -235,12 +235,12 @@ export default function Sidebar() {
 
                 {/* Tab buttons */}
                 <div className="px-4 pb-2">
-                    <div className="flex bg-gray-100 rounded-lg p-1">
+                    <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
                         <button
                             onClick={() => setDesktopTab('itinerary')}
                             className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all ${desktopTab === 'itinerary'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                                 }`}
                         >
                             Itinerary
@@ -249,10 +249,10 @@ export default function Sidebar() {
                             onClick={() => setDesktopTab('route')}
                             disabled={!optimizedRoute}
                             className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${desktopTab === 'route'
-                                ? 'bg-white text-gray-900 shadow-sm'
+                                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
                                 : optimizedRoute
-                                    ? 'text-gray-600 hover:text-gray-900'
-                                    : 'text-gray-400 cursor-not-allowed'
+                                    ? 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                    : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
                                 }`}
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -265,7 +265,7 @@ export default function Sidebar() {
                 </div>
 
                 {/* Tab content */}
-                <div className="flex-1 overflow-y-auto border-t">
+                <div className="flex-1 overflow-y-auto border-t border-gray-200 dark:border-gray-700">
                     {desktopTab === 'itinerary' ? (
                         <>
                             {selectedLocations.length === 0 ? (
@@ -296,15 +296,15 @@ export default function Sidebar() {
                                                     ref={provided.innerRef}
                                                     {...provided.draggableProps}
                                                     {...provided.dragHandleProps}
-                                                    className={`flex items-center gap-3 p-2 bg-gray-50 rounded-lg cursor-grab active:cursor-grabbing shadow-lg scale-[1.02] bg-blue-50`}
+                                                    className={`flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg cursor-grab active:cursor-grabbing shadow-lg scale-[1.02]`}
                                                 >
-                                                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                                                     </svg>
                                                     <span className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm">
                                                         {index + 1}
                                                     </span>
-                                                    <span className="text-gray-700 flex-1 truncate">{location.name}</span>
+                                                    <span className="text-gray-700 dark:text-gray-200 flex-1 truncate">{location.name}</span>
                                                 </div>
                                             );
                                         }}
@@ -322,16 +322,16 @@ export default function Sidebar() {
                                                                 ref={provided.innerRef}
                                                                 {...provided.draggableProps}
                                                                 {...provided.dragHandleProps}
-                                                                className={`flex items-center gap-3 p-2 bg-gray-50 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${snapshot.isDragging ? 'shadow-lg scale-[1.02] bg-blue-50' : ''
+                                                                className={`flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${snapshot.isDragging ? 'shadow-lg scale-[1.02] bg-blue-50 dark:bg-blue-900/30' : ''
                                                                     }`}
                                                             >
-                                                                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                                                                 </svg>
                                                                 <span className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm">
                                                                     {i + 1}
                                                                 </span>
-                                                                <span className="text-gray-700 flex-1 truncate">{location.name}</span>
+                                                                <span className="text-gray-700 dark:text-gray-200 flex-1 truncate">{location.name}</span>
                                                             </div>
                                                         )}
                                                     </Draggable>
@@ -342,7 +342,7 @@ export default function Sidebar() {
                                     </Droppable>
                                 </DragDropContext>
                             ) : (
-                                <div className="text-center py-8 text-gray-500">
+                                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                                     <p>No optimized route yet</p>
                                     <p className="text-sm mt-1">Go to Itinerary tab and click &quot;Optimize Route&quot;</p>
                                 </div>
@@ -365,12 +365,12 @@ export default function Sidebar() {
                 ) : (
                     /* Route tab actions */
                     optimizedRoute && (
-                        <div className="p-4 border-t bg-gray-50 rounded-b-lg flex flex-col gap-2">
+                        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-lg flex flex-col gap-2">
                             {showSignInPrompt && !currentUser && (
-                                <div className="mb-2 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center shadow-sm animate-slide-up">
+                                <div className="mb-2 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg flex justify-between items-center shadow-sm animate-slide-up">
                                     <div className="flex-1">
-                                        <p className="text-sm text-blue-800 font-medium">✨ Trip optimized!</p>
-                                        <p className="text-xs text-blue-600 mt-0.5">Sign in to save this trip.</p>
+                                        <p className="text-sm text-blue-800 dark:text-blue-300 font-medium">✨ Trip optimized!</p>
+                                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Sign in to save this trip.</p>
                                     </div>
                                     <div className="flex gap-2 ml-3">
                                         <button
@@ -411,7 +411,7 @@ export default function Sidebar() {
                                 </button>
                                 <button
                                     onClick={exportToGoogleMaps}
-                                    className="flex-1 py-2.5 px-4 bg-white border border-gray-200 text-gray-700 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
+                                    className="flex-1 py-2.5 px-4 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                                     title="Open in Google Maps"
                                 >
                                     <svg className="w-5 h-5" viewBox="0 0 92.3 132.3">
@@ -436,11 +436,11 @@ export default function Sidebar() {
 function EmptyState() {
     return (
         <div className="p-4 flex flex-col items-center justify-center h-full">
-            <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <p className="text-gray-500 text-center">Search and add locations to create your itinerary</p>
+            <p className="text-gray-500 dark:text-gray-400 text-center">Search and add locations to create your itinerary</p>
         </div>
     );
 }
@@ -452,21 +452,21 @@ function LocationList({ selectedLocations, startIndex, endIndex, setStartLocatio
             {selectedLocations.map((location, index) => (
                 <div
                     key={index}
-                    className="bg-gray-50 rounded-lg p-2.5 border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all duration-200"
+                    className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2.5 border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-700 hover:shadow-sm transition-all duration-200"
                 >
                     <div className="flex items-center gap-2">
                         {/* Location info */}
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                                <p className="font-medium text-gray-900 text-sm truncate">{location.name}</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{location.name}</p>
                                 {startIndex === index && (
-                                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-800 rounded shrink-0">S</span>
+                                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded shrink-0">S</span>
                                 )}
                                 {endIndex === index && (
-                                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-800 rounded shrink-0">E</span>
+                                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 rounded shrink-0">E</span>
                                 )}
                             </div>
-                            <p className="text-xs text-gray-500 truncate">{location.address}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{location.address}</p>
                         </div>
 
                         {/* Action buttons */}
@@ -475,7 +475,7 @@ function LocationList({ selectedLocations, startIndex, endIndex, setStartLocatio
                                 onClick={() => setStartLocation(index)}
                                 className={`p-1.5 rounded transition-all ${startIndex === index
                                     ? 'bg-green-600 text-white'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-green-100'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-green-100 dark:hover:bg-green-900/50'
                                     }`}
                                 title="Set as start"
                             >
@@ -485,7 +485,7 @@ function LocationList({ selectedLocations, startIndex, endIndex, setStartLocatio
                                 onClick={() => setEndLocation(index)}
                                 className={`p-1.5 rounded transition-all ${endIndex === index
                                     ? 'bg-red-600 text-white'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-red-100'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-red-100 dark:hover:bg-red-900/50'
                                     }`}
                                 title="Set as end"
                             >
@@ -493,7 +493,7 @@ function LocationList({ selectedLocations, startIndex, endIndex, setStartLocatio
                             </button>
                             <button
                                 onClick={() => removeLocation(index)}
-                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
+                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all"
                                 aria-label="Remove location"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -511,7 +511,7 @@ function LocationList({ selectedLocations, startIndex, endIndex, setStartLocatio
 // ActionButtons component
 function ActionButtons({ selectedLocations, submitItinerary, isSubmitting, clearAllLocations }) {
     return (
-        <div className="p-3 border-t bg-gray-50 rounded-b-lg">
+        <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-lg">
             {selectedLocations.length > 0 && (
                 <div className="flex gap-2">
                     <button
@@ -535,7 +535,7 @@ function ActionButtons({ selectedLocations, submitItinerary, isSubmitting, clear
 
                     <button
                         onClick={clearAllLocations}
-                        className="py-2 px-3 text-gray-500 hover:text-red-600 text-sm transition-colors hover:bg-red-50 rounded-lg border border-gray-200"
+                        className="py-2 px-3 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 text-sm transition-colors hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg border border-gray-200 dark:border-gray-600"
                     >
                         Clear
                     </button>

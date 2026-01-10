@@ -57,7 +57,7 @@ export default function ChatWidget() {
             <div
                 ref={panelRef}
                 className={`
-                md:hidden fixed left-0 right-0 bottom-0 z-40 bg-white rounded-t-2xl shadow-xl flex flex-col
+                md:hidden fixed left-0 right-0 bottom-0 z-40 bg-white dark:bg-gray-900 rounded-t-2xl shadow-xl flex flex-col
                 transition-all duration-300 ease-in-out
                 ${isMobileVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}
                 ${getMobileHeightClass()}
@@ -69,18 +69,18 @@ export default function ChatWidget() {
                     onMouseDown={handleDragStart}
                     onTouchStart={handleDragStart}
                 >
-                    <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
+                    <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
                 </div>
 
                 {/* Header Row - left side draggable, right side buttons */}
-                <div className="px-4 pb-2 flex items-center border-b">
+                <div className="px-4 pb-2 flex items-center border-b border-gray-200 dark:border-gray-700">
                     {/* Draggable area - title */}
                     <div
                         className="flex-1 cursor-grab active:cursor-grabbing touch-none"
                         onMouseDown={handleDragStart}
                         onTouchStart={handleDragStart}
                     >
-                        <h2 className="font-semibold text-gray-900">Pathwise AI</h2>
+                        <h2 className="font-semibold text-gray-900 dark:text-gray-100">Pathwise AI</h2>
                     </div>
                     {/* Buttons - not draggable */}
                     <div className="flex gap-1">
@@ -90,7 +90,7 @@ export default function ChatWidget() {
                                 setMobileShowHistory(false);
                                 setNewChatTrigger(prev => prev + 1);
                             }}
-                            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500"
+                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400"
                             aria-label="New chat"
                             title="New chat"
                         >
@@ -101,7 +101,7 @@ export default function ChatWidget() {
                         {/* History button */}
                         <button
                             onClick={() => setMobileShowHistory(true)}
-                            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500"
+                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400"
                             aria-label="Chat history"
                             title="Chat history"
                         >
@@ -112,7 +112,7 @@ export default function ChatWidget() {
                         {chatHeight !== 'full' && (
                             <button
                                 onClick={() => setChatHeight('full')}
-                                className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500"
+                                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400"
                                 aria-label="Expand chat"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,7 +125,7 @@ export default function ChatWidget() {
                                 setIsChatOpen(false);
                                 setActivePanel('none');
                             }}
-                            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500"
+                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400"
                             aria-label="Close chat"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -143,7 +143,7 @@ export default function ChatWidget() {
                             newChatTrigger={newChatTrigger}
                         />
                     ) : (
-                        <div className="p-4 text-center text-gray-500 text-sm">
+                        <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
                             Drag up to continue chatting
                         </div>
                     )}
@@ -153,7 +153,7 @@ export default function ChatWidget() {
             {/* Desktop: Floating chat widget */}
             <div className="hidden md:flex absolute bottom-4 right-4 flex-col items-end z-10">
                 {isChatOpen && (
-                    <div className="mb-4 bg-white shadow-xl rounded-lg w-96 overflow-hidden">
+                    <div className="mb-4 bg-white dark:bg-gray-800 shadow-xl rounded-lg w-96 overflow-hidden">
                         <div className="h-[600px] flex flex-col">
                             <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-lg">
                                 <h2 className="font-semibold text-white">Pathwise AI</h2>

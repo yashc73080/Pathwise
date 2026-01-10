@@ -1,6 +1,7 @@
 'use client';
 
 import { TripProvider, useTrip } from './context/TripContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Map from './components/Map';
 import Sidebar from './components/Sidebar';
 import Search from './components/Search';
@@ -68,32 +69,34 @@ function MobileOptimizeButton() {
 export default function Page() {
   return (
     <AuthProvider>
-      <TripProvider>
-        <div className="flex h-[100dvh] w-screen overflow-hidden">
-          {/* Main Content Container */}
-          <div className="flex-1 flex relative">
-            {/* Map Container */}
-            <div className="flex-1 relative pb-16 md:pb-0">
+      <ThemeProvider>
+        <TripProvider>
+          <div className="flex h-[100dvh] w-screen overflow-hidden">
+            {/* Main Content Container */}
+            <div className="flex-1 flex relative">
+              {/* Map Container */}
+              <div className="flex-1 relative pb-16 md:pb-0">
 
-              <Search />
-              <Sidebar />
-              <Map />
-              <RoutePanel />
-              <ChatWidget />
-              <LoginModal />
-              <ProfileMenu />
-              <SavedTripsModal />
+                <Search />
+                <Sidebar />
+                <Map />
+                <RoutePanel />
+                <ChatWidget />
+                <LoginModal />
+                <ProfileMenu />
+                <SavedTripsModal />
 
-              {/* Mobile Optimize Button */}
-              <MobileOptimizeButton />
+                {/* Mobile Optimize Button */}
+                <MobileOptimizeButton />
 
-              {/* Mobile Navigation */}
-              <MobileNav />
+                {/* Mobile Navigation */}
+                <MobileNav />
 
+              </div>
             </div>
           </div>
-        </div>
-      </TripProvider>
+        </TripProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

@@ -170,15 +170,15 @@ export default function Search() {
 
     return (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-full max-w-xl z-10 px-4">
-            <div className="bg-white rounded-xl shadow-lg flex items-center p-1.5 transition-all duration-200 hover:shadow-xl">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg flex items-center p-1.5 transition-all duration-200 hover:shadow-xl">
                 <div className="flex-1 flex items-center">
-                    <svg className="w-5 h-5 text-gray-400 ml-2 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-400 dark:text-gray-500 ml-2 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <input
                         ref={inputRef}
                         id="pac-input"
-                        className="flex-1 p-2.5 bg-transparent border-none focus:ring-0 focus:outline-none text-gray-900 placeholder-gray-400"
+                        className="flex-1 p-2.5 bg-transparent border-none focus:ring-0 focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                         type="text"
                         placeholder="Search or click on the map"
                         aria-label="Search for a location"
@@ -188,7 +188,7 @@ export default function Search() {
                 <button
                     onClick={handleCurrentLocation}
                     disabled={isLocating}
-                    className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                    className="p-2.5 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200"
                     title="Use my current location"
                     aria-label="Use my current location"
                 >
@@ -202,14 +202,14 @@ export default function Search() {
                     )}
                 </button>
 
-                <div className="h-6 w-px bg-gray-200 mx-1"></div>
+                <div className="h-6 w-px bg-gray-200 dark:bg-gray-600 mx-1"></div>
 
                 <button
                     onClick={addToItinerary}
                     disabled={!currentPlace}
                     className={`p-2.5 rounded-lg transition-all duration-200 ${currentPlace
-                        ? 'text-blue-600 hover:bg-blue-50'
-                        : 'text-gray-300 cursor-not-allowed'
+                        ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                        : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
                         }`}
                     title="Add to itinerary"
                     aria-label="Add location to itinerary"
@@ -224,7 +224,7 @@ export default function Search() {
             {currentPlace && (
                 <div
                     onClick={handleOpenGoogleMaps}
-                    className="mt-2 bg-white rounded-lg shadow-md p-3 flex items-start gap-3 animate-fade-in cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-md p-3 flex items-start gap-3 animate-fade-in cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                         <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -233,8 +233,8 @@ export default function Search() {
                         </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{currentPlace.name}</p>
-                        <p className="text-sm text-gray-500 truncate">{currentPlace.address}</p>
+                        <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{currentPlace.name}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{currentPlace.address}</p>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                         <button
@@ -245,7 +245,7 @@ export default function Search() {
                         </button>
                         <button
                             onClick={handleClearPlace}
-                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                             aria-label="Clear selection"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

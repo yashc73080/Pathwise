@@ -53,7 +53,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
 
 @app.route('/')
 def home():
-    return "Welcome to the Pathwise API! Use the /submit-itinerary endpoint to calculate routes."
+    return "CI/CD TEST Welcome to the Pathwise API! Use the /submit-itinerary endpoint to calculate routes."
 
 @app.route('/submit-itinerary', methods=['POST'])
 def submit_itinerary():

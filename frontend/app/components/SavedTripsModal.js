@@ -131,7 +131,9 @@ export default function SavedTripsModal() {
                                         <div>
                                             <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{trip.name || `Trip ${trips.length - index}`}</h3>
                                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                {trip.createdAt?.seconds ? new Date(trip.createdAt.seconds * 1000).toLocaleDateString() : 'Just now'}
+                                                {trip.createdAt?.seconds
+                                                    ? `${new Date(trip.createdAt.seconds * 1000).toLocaleDateString()} at ${new Date(trip.createdAt.seconds * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                                                    : 'Just now'}
                                             </p>
                                         </div>
                                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

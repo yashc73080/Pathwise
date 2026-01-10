@@ -119,22 +119,26 @@ export default function RoutePanel() {
     // Route list component with drag-and-drop using renderClone for proper portal behavior
     const RouteList = () => {
         // Render function for both the in-place item and the dragging clone 
-        // TODO: fix for mobile
         const renderDraggableItem = (provided, snapshot, location, index) => (
             <div
                 ref={provided.innerRef}
                 {...provided.draggableProps}
-                {...provided.dragHandleProps}
                 style={{
                     ...provided.draggableProps.style,
-                    touchAction: 'none'
                 }}
-                className={`flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${snapshot.isDragging ? 'shadow-lg scale-[1.02] bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                className={`flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg transition-all duration-200 ${snapshot.isDragging ? 'shadow-lg scale-[1.02] bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
             >
-                <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                </svg>
+                {/* Drag handle - only this element triggers dragging */}
+                <div
+                    {...provided.dragHandleProps}
+                    className="p-1 cursor-grab active:cursor-grabbing touch-none"
+                    style={{ touchAction: 'none' }}
+                >
+                    <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                    </svg>
+                </div>
                 <span className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm">
                     {index + 1}
                 </span>

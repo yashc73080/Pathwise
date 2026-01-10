@@ -111,6 +111,7 @@ export default function Map() {
             zoomControl: false,
             streetViewControl: false,
             fullscreenControl: false,
+            disableDefaultUI: true,
             clickableIcons: true,
             gestureHandling: 'greedy',
             styles: resolvedTheme === 'dark' ? darkMapStyles : []

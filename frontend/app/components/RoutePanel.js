@@ -116,54 +116,57 @@ export default function RoutePanel() {
         reorderOptimizedRoute(result.source.index, result.destination.index);
     };
 
-    // Route list component with drag-and-drop
-    const RouteList = () => (
-        <DragDropContext onDragEnd={handleRouteDragEnd}>
-            <Droppable droppableId="mobile-optimized-route">
-                {(provided) => (
-                    <div
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                        className="space-y-2"
-                    >
-                        {optimizedCoords.map((location, i) => (
-                            <Draggable key={`mobile-route-${i}`} draggableId={`mobile-route-${i}`} index={i}>
-                                {(provided, snapshot) => {
-                                    const child = (
-                                        <div
-                                            ref={provided.innerRef}
-                                            {...provided.draggableProps}
-                                            {...provided.dragHandleProps}
-                                            style={{
-                                                ...provided.draggableProps.style,
-                                                touchAction: 'none'
-                                            }}
-                                            className={`flex items-center gap-3 p-2 bg-gray-50 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${snapshot.isDragging ? 'shadow-lg scale-[1.02] bg-blue-50' : 'hover:bg-gray-100'
-                                                }`}
-                                        >
-                                            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                                            </svg>
-                                            <span className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm">
-                                                {i + 1}
-                                            </span>
-                                            <span className="text-gray-700 flex-1 truncate">{location.name}</span>
-                                        </div>
-                                    );
-                                    // Use portal when dragging to fix offset issues in scrollable containers
-                                    if (snapshot.isDragging) {
-                                        return createPortal(child, document.body);
-                                    }
-                                    return child;
-                                }}
-                            </Draggable>
-                        ))}
-                        {provided.placeholder}
-                    </div>
-                )}
-            </Droppable>
-        </DragDropContext>
-    );
+    // Route list component with drag-and-drop using renderClone for proper portal behavior
+    const RouteList = () => {
+        // Render function for both the in-place item and the dragging clone
+        const renderDraggableItem = (provided, snapshot, location, index) => (
+            <div
+                ref={provided.innerRef}
+                {...provided.draggableProps}
+                {...provided.dragHandleProps}
+                style={{
+                    ...provided.draggableProps.style,
+                    touchAction: 'none'
+                }}
+                className={`flex items-center gap-3 p-2 bg-gray-50 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${snapshot.isDragging ? 'shadow-lg scale-[1.02] bg-blue-50' : 'hover:bg-gray-100'
+                    }`}
+            >
+                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                </svg>
+                <span className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm">
+                    {index + 1}
+                </span>
+                <span className="text-gray-700 flex-1 truncate">{location.name}</span>
+            </div>
+        );
+
+        return (
+            <DragDropContext onDragEnd={handleRouteDragEnd}>
+                <Droppable
+                    droppableId="mobile-optimized-route"
+                    renderClone={(provided, snapshot, rubric) =>
+                        renderDraggableItem(provided, snapshot, optimizedCoords[rubric.source.index], rubric.source.index)
+                    }
+                >
+                    {(provided) => (
+                        <div
+                            {...provided.droppableProps}
+                            ref={provided.innerRef}
+                            className="space-y-2"
+                        >
+                            {optimizedCoords.map((location, i) => (
+                                <Draggable key={`mobile-route-${i}`} draggableId={`mobile-route-${i}`} index={i}>
+                                    {(provided, snapshot) => renderDraggableItem(provided, snapshot, location, i)}
+                                </Draggable>
+                            ))}
+                            {provided.placeholder}
+                        </div>
+                    )}
+                </Droppable>
+            </DragDropContext>
+        );
+    };
 
     return (
         <>

@@ -286,7 +286,29 @@ export default function Sidebar() {
                         <div className="p-4">
                             {optimizedRoute && optimizedCoords ? (
                                 <DragDropContext onDragEnd={handleRouteDragEnd}>
-                                    <Droppable droppableId="optimized-route">
+                                    <Droppable
+                                        droppableId="optimized-route"
+                                        renderClone={(provided, snapshot, rubric) => {
+                                            const location = optimizedCoords[rubric.source.index];
+                                            const index = rubric.source.index;
+                                            return (
+                                                <div
+                                                    ref={provided.innerRef}
+                                                    {...provided.draggableProps}
+                                                    {...provided.dragHandleProps}
+                                                    className={`flex items-center gap-3 p-2 bg-gray-50 rounded-lg cursor-grab active:cursor-grabbing shadow-lg scale-[1.02] bg-blue-50`}
+                                                >
+                                                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                                                    </svg>
+                                                    <span className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm">
+                                                        {index + 1}
+                                                    </span>
+                                                    <span className="text-gray-700 flex-1 truncate">{location.name}</span>
+                                                </div>
+                                            );
+                                        }}
+                                    >
                                         {(provided) => (
                                             <div
                                                 {...provided.droppableProps}
@@ -295,30 +317,23 @@ export default function Sidebar() {
                                             >
                                                 {optimizedCoords.map((location, i) => (
                                                     <Draggable key={`route-${i}`} draggableId={`route-${i}`} index={i}>
-                                                        {(provided, snapshot) => {
-                                                            const child = (
-                                                                <div
-                                                                    ref={provided.innerRef}
-                                                                    {...provided.draggableProps}
-                                                                    {...provided.dragHandleProps}
-                                                                    className={`flex items-center gap-3 p-2 bg-gray-50 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${snapshot.isDragging ? 'shadow-lg scale-[1.02] bg-blue-50' : ''
-                                                                        }`}
-                                                                >
-                                                                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                                                                    </svg>
-                                                                    <span className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm">
-                                                                        {i + 1}
-                                                                    </span>
-                                                                    <span className="text-gray-700 flex-1 truncate">{location.name}</span>
-                                                                </div>
-                                                            );
-                                                            // Use portal when dragging to fix offset issues in scrollable containers
-                                                            if (snapshot.isDragging) {
-                                                                return createPortal(child, document.body);
-                                                            }
-                                                            return child;
-                                                        }}
+                                                        {(provided, snapshot) => (
+                                                            <div
+                                                                ref={provided.innerRef}
+                                                                {...provided.draggableProps}
+                                                                {...provided.dragHandleProps}
+                                                                className={`flex items-center gap-3 p-2 bg-gray-50 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${snapshot.isDragging ? 'shadow-lg scale-[1.02] bg-blue-50' : ''
+                                                                    }`}
+                                                            >
+                                                                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                                                                </svg>
+                                                                <span className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm">
+                                                                    {i + 1}
+                                                                </span>
+                                                                <span className="text-gray-700 flex-1 truncate">{location.name}</span>
+                                                            </div>
+                                                        )}
                                                     </Draggable>
                                                 ))}
                                                 {provided.placeholder}

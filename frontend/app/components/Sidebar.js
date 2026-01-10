@@ -200,7 +200,7 @@ export default function Sidebar() {
             >
                 {/* Header with close button */}
                 <div className="p-4 pb-2 flex justify-between items-center">
-                    <h2 className="text-lg font-semibold text-gray-900">CI/CD TEST Trip Planner</h2>
+                    <h2 className="text-lg font-semibold text-gray-900">Trip Planner</h2>
                     <button
                         onClick={() => setIsSidebarOpen(false)}
                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"

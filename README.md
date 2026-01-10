@@ -206,11 +206,7 @@ firebase deploy
 ```bash
 gcloud run deploy pathwise-backend --source .
 ```
-
-Ensure `frontend/.env.local` has:
-```
-NEXT_PUBLIC_BACKEND_URL=<backend_url>
-``` 
+Select `[35] us-central1` as the region.
 
 ---
 

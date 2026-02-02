@@ -48,8 +48,8 @@ except Exception as e:
 
 app = Flask(__name__)
 # Allow all origins in development for mobile testing on local network
-# In production, you should restrict to specific domains
-CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
+# Allow requests from localhost (for testing) AND pathwise.web.app (for production)
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "https://pathwise.web.app"]}})
 
 @app.route('/')
 def home():
@@ -243,12 +243,24 @@ def chat():
         # System message for context
         system_message = {
             "role": "system",
-            "content": f"""You are Pathwise AI, an AI travel assistant with advanced action-taking capabilities. 
-            Your primary goal is to help users plan and execute their travel itineraries seamlessly.
-            The current itinerary includes the following locations: {formatted_locations}.
+            "content": f"""You are Pathwise AI, an AI travel assistant with action-taking capabilities. 
+            Current itinerary locations: {formatted_locations}.
             {centroid_info}
+            
+            Your tools:
+            1. `plan_trip` - For road trips between cities. Returns places (restaurants, attractions, gas stations) at waypoints along the route. Use this for requests like "trip from X to Y with stops".
+            2. `search_places` - Search for specific places. Use for single-location queries.
+            3. `add_locations_to_itinerary` - Add places to the trip.
+            4. `optimize_route` - Optimize the route order.
+            
+            ROAD TRIP WORKFLOW:
+            1. Call `plan_trip(origin, destination, stop_types)` - it will find places along the entire route
+            2. After plan_trip, call `add_locations_to_itinerary` with places the user wants
+            3. Call `optimize_route` to finalize
+            
             When the user asks for "nearby" recommendations without specifying a reference point, infer whether they mean near a specific stop or the general area of the trip. 
-            The search_places tool accepts 'location' (lat,lng string) and 'radius' (meters) parameters. PREFER using these parameters with the centroid or a specific location's coordinates over text-based search alone.
+            The `search_places` tool accepts 'location' (lat,lng string) and 'radius' (meters) parameters. PREFER using these parameters with the centroid or a specific location's coordinates over text-based search alone.
+            
             IMPORTANT: When you use the `search_places` tool, the results will be displayed to the user as visual cards. IN YOUR TEXT RESPONSE, DO NOT LIST THE PLACES AGAIN (no names, addresses, or ratings). Only provide a brief summary (e.g., 'I found several options nearby...') or specific advice/directions if asked. Avoid redundancy.
             """
         }
@@ -293,8 +305,8 @@ def chat():
                     # Save assistant response
                     session_service.add_message(user_id, chat_id_arg, 'assistant', full_response)
                     
-                    # Sanitize lastMessage for metadata (remove places data)
-                    clean_last_message = re.sub(r'<!--PLACES_DATA:[\s\S]*?(?::PLACES_DATA-->|$)', '', full_response).strip()
+                    # Sanitize lastMessage for metadata (remove all tool data markers)
+                    clean_last_message = re.sub(r'<!--(?:PLACES_DATA|ADD_LOCATIONS|OPTIMIZE_ROUTE):[\s\S]*?(?::(?:PLACES_DATA|ADD_LOCATIONS|OPTIMIZE_ROUTE)-->|$)', '', full_response).strip()
                     
                     # Update session metadata
                     session_service.update_session(user_id, chat_id_arg, {

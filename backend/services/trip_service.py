@@ -34,6 +34,7 @@ class TripService:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         days: Optional[List[Dict[str, Any]]] = None,
+        chat_session_id: Optional[str] = None,
         created_by: str = "web",
     ) -> Trip:
         trip_days = [Day.from_dict(day) for day in days] if days else [Day(id=new_day_id(), label="Day 1")]
@@ -47,6 +48,7 @@ class TripService:
             endDate=end_date,
             visibility="private" if owner_id else "link",
             days=trip_days,
+            chatSessionId=chat_session_id,
             createdBy=created_by,
         )
         for day in trip.days:

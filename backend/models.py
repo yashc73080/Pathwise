@@ -173,9 +173,15 @@ class Trip:
         )
         if not trip.days:
             trip.days = [Day(id=new_day_id(), label="Day 1")]
+        trip.relabel_days()
         return trip
 
+    def relabel_days(self) -> None:
+        for index, day in enumerate(self.days):
+            day.label = f"Day {index + 1}"
+
     def to_dict(self) -> Dict[str, Any]:
+        self.relabel_days()
         return {
             "schemaVersion": self.schemaVersion,
             "ownerId": self.ownerId,

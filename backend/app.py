@@ -63,7 +63,23 @@ CORS(app, resources={r"/*": {"origins": [
     "http://localhost",
     "https://localhost",
     "https://pathwise.web.app",
-]}})
+]}}, allow_headers=["Content-Type", "Authorization", "X-Claim-Token"], methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"])
+
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get("Origin")
+    allowed_origin = (
+        origin == "http://localhost:3000"
+        or origin == "https://pathwise.web.app"
+        or bool(origin and re.match(r"^http://192\.168\.\d{1,3}\.\d{1,3}:3000$", origin))
+        or bool(origin and re.match(r"^http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}:3000$", origin))
+    )
+    if allowed_origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Claim-Token"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS"
+    return response
 
 app.register_blueprint(create_trips_blueprint(trip_service))
 

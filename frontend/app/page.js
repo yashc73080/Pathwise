@@ -17,21 +17,17 @@ import SavedTripsModal from './components/SavedTripsModal';
 
 // Mobile Optimize Button Component
 function MobileOptimizeButton() {
-  const { selectedLocations, submitItinerary, isSubmitting, setActivePanel, optimizedRoute, optimizedCoords, activePanel } = useTrip();
+  const { submitItinerary, isSubmitting, hasOptimizableDay, needsTripOptimization, activePanel } = useTrip();
 
   // Show when:
-  // - 2+ locations exist
+  // - At least one day has 2+ locations
   // - No panel is open
-  // - Either no route optimized yet, OR more destinations added since last optimization
-  const hasNewDestinations = optimizedCoords ? selectedLocations.length > optimizedCoords.length : false;
-  const needsOptimization = !optimizedRoute || hasNewDestinations;
+  // - At least one day needs a fresh optimization
 
-  if (selectedLocations.length < 2 || !needsOptimization || activePanel !== 'none') return null;
+  if (!hasOptimizableDay || !needsTripOptimization || activePanel !== 'none') return null;
 
   const handleOptimize = async () => {
     await submitItinerary();
-    // After optimizing, open the Route tab
-    setActivePanel('route');
   };
 
   return (

@@ -6,6 +6,7 @@ import { useTrip } from '../context/TripContext';
 import { getUserTrips, deleteTrip } from '../firebase/firestore';
 import { doSignOut } from '../firebase/auth';
 import toast from 'react-hot-toast';
+import { getOrderedStops } from '../utils/tripModel';
 
 export default function SavedTripsModal() {
     const { currentUser, isSavedTripsModalOpen, closeSavedTripsModal } = useAuth();
@@ -18,7 +19,7 @@ export default function SavedTripsModal() {
         if (!currentUser) return;
         setLoading(true);
         try {
-            const userTrips = await getUserTrips(currentUser.uid);
+            const userTrips = await getUserTrips(currentUser);
             setTrips(userTrips);
         } catch (error) {
             toast.error('Failed to fetch saved trips');
@@ -43,7 +44,7 @@ export default function SavedTripsModal() {
         // if (!window.confirm('Are you sure you want to delete this trip?')) return;
 
         try {
-            await deleteTrip(tripId);
+            await deleteTrip(currentUser, tripId);
             toast.success('Trip deleted');
             fetchTrips(); // Refresh list
         } catch (error) {
@@ -56,12 +57,13 @@ export default function SavedTripsModal() {
 
         // Construct Google Maps URL based on trip data
         // Similar to TripContext exportToGoogleMaps
-        if (!trip.optimizedRoute || !trip.locations) return;
+        const day = trip.days?.find(candidate => candidate.route?.order?.length) || trip.days?.[0];
+        if (!day || day.stops.length < 2) return;
 
-        const optimizedCoords = trip.optimizedRoute.map(index => trip.locations[index]);
+        const optimizedCoords = getOrderedStops(day);
         const baseUrl = "https://www.google.com/maps/dir/";
         const waypoints = optimizedCoords
-            .map(loc => `${loc.lat},${loc.lng}`)
+            .map(loc => loc.address ? encodeURIComponent(`${loc.name}, ${loc.address}`) : `${loc.lat},${loc.lng}`)
             .join('/');
 
         const googleMapsUrl = `${baseUrl}${waypoints}`;
@@ -129,7 +131,7 @@ export default function SavedTripsModal() {
                                 >
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
-                                            <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{trip.name || `Trip ${trips.length - index}`}</h3>
+                                            <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{trip.title || trip.name || `Trip ${trips.length - index}`}</h3>
                                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                                 {trip.createdAt?.seconds
                                                     ? `${new Date(trip.createdAt.seconds * 1000).toLocaleDateString()} at ${new Date(trip.createdAt.seconds * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
@@ -162,17 +164,49 @@ export default function SavedTripsModal() {
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-wrap gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                        {trip.optimizedRoute.map((locIndex, i) => (
-                                            <span key={i} className="flex items-center">
-                                                {trip.locations[locIndex].name}
-                                                {i < trip.optimizedRoute.length - 1 && (
-                                                    <svg className="w-4 h-4 mx-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                )}
-                                            </span>
-                                        ))}
+                                    <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                        {(() => {
+                                            const days = (trip.days || []).filter(day => day.stops?.length);
+                                            const maxDaysShown = 3;
+                                            const maxStopsPerDay = 3;
+                                            const shownDays = days.slice(0, maxDaysShown);
+                                            const extraDays = days.length - shownDays.length;
+
+                                            return (
+                                                <>
+                                                    {shownDays.map((day, dayIdx) => {
+                                                        const stops = getOrderedStops(day);
+                                                        const shownStops = stops.slice(0, maxStopsPerDay);
+                                                        const extraStops = stops.length - shownStops.length;
+                                                        return (
+                                                            <div key={day.id || dayIdx} className="flex flex-wrap items-center gap-1">
+                                                                {days.length > 1 && (
+                                                                    <span className="font-medium text-gray-500 dark:text-gray-400 mr-1">
+                                                                        Day {dayIdx + 1}:
+                                                                    </span>
+                                                                )}
+                                                                {shownStops.map((loc, i) => (
+                                                                    <span key={loc.id || i} className="flex items-center">
+                                                                        {loc.name}
+                                                                        {i < shownStops.length - 1 && (
+                                                                            <svg className="w-4 h-4 mx-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                                            </svg>
+                                                                        )}
+                                                                    </span>
+                                                                ))}
+                                                                {extraStops > 0 && (
+                                                                    <span className="text-gray-400">+{extraStops} more</span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {extraDays > 0 && (
+                                                        <div className="text-gray-400">+{extraDays} more day{extraDays > 1 ? 's' : ''}</div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             ))}

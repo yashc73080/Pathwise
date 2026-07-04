@@ -32,6 +32,7 @@ def create_trips_blueprint(trip_service: TripService) -> Blueprint:
             start_date=data.get("startDate"),
             end_date=data.get("endDate"),
             days=data.get("days"),
+            chat_session_id=data.get("chatSessionId"),
             created_by=data.get("createdBy") or "web",
         )
         payload = {"trip": serialize_trip(trip)}
@@ -182,4 +183,14 @@ def create_trips_blueprint(trip_service: TripService) -> Blueprint:
 def serialize_trip(trip):
     data = trip.to_dict()
     data["id"] = trip.id
-    return data
+    return serialize_value(data)
+
+
+def serialize_value(value):
+    if isinstance(value, dict):
+        return {key: serialize_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [serialize_value(item) for item in value]
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value

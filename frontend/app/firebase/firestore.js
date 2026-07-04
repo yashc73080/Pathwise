@@ -1,58 +1,54 @@
-import { db } from './firebase';
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, orderBy, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { getBackendUrl } from '../utils/backendUrl';
 
-// Add a new trip
-export const addTrip = async (userId, tripData) => {
-    try {
-        const docRef = await addDoc(collection(db, 'itineraries'), {
-            userId,
-            ...tripData,
-            createdAt: serverTimestamp()
-        });
-        return docRef.id;
-    } catch (error) {
-        console.error("Error adding trip: ", error);
-        throw error;
+async function authHeaders(currentUser) {
+    if (!currentUser) return { 'Content-Type': 'application/json' };
+    const token = await currentUser.getIdToken();
+    return {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+    };
+}
+
+async function parseResponse(response) {
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(data.error || `Request failed with ${response.status}`);
     }
+    return data;
+}
+
+export const addTrip = async (currentUser, tripData) => {
+    const response = await fetch(`${getBackendUrl()}/api/trips`, {
+        method: 'POST',
+        headers: await authHeaders(currentUser),
+        body: JSON.stringify(tripData)
+    });
+    const data = await parseResponse(response);
+    return data.trip.id;
 };
 
-// Get all trips for a user
-export const getUserTrips = async (userId) => {
-    try {
-        const q = query(
-            collection(db, 'itineraries'),
-            where('userId', '==', userId),
-            orderBy('createdAt', 'desc')
-        );
-
-        const querySnapshot = await getDocs(q);
-        const trips = [];
-        querySnapshot.forEach((doc) => {
-            trips.push({ id: doc.id, ...doc.data() });
-        });
-        return trips;
-    } catch (error) {
-        console.error("Error getting trips: ", error);
-        throw error;
-    }
+export const getUserTrips = async (currentUser) => {
+    const response = await fetch(`${getBackendUrl()}/api/trips`, {
+        method: 'GET',
+        headers: await authHeaders(currentUser)
+    });
+    const data = await parseResponse(response);
+    return data.trips || [];
 };
 
-// Delete a trip
-export const deleteTrip = async (tripId) => {
-    try {
-        await deleteDoc(doc(db, 'itineraries', tripId));
-    } catch (error) {
-        console.error("Error deleting trip: ", error);
-        throw error;
-    }
+export const deleteTrip = async (currentUser, tripId) => {
+    const response = await fetch(`${getBackendUrl()}/api/trips/${tripId}`, {
+        method: 'DELETE',
+        headers: await authHeaders(currentUser)
+    });
+    await parseResponse(response);
 };
 
-// Update a trip's name
-export const updateTripName = async (tripId, name) => {
-    try {
-        await updateDoc(doc(db, 'itineraries', tripId), { name });
-    } catch (error) {
-        console.error("Error updating trip name: ", error);
-        throw error;
-    }
+export const updateTripName = async (currentUser, tripId, name) => {
+    const response = await fetch(`${getBackendUrl()}/api/trips/${tripId}`, {
+        method: 'PATCH',
+        headers: await authHeaders(currentUser),
+        body: JSON.stringify({ title: name })
+    });
+    await parseResponse(response);
 };

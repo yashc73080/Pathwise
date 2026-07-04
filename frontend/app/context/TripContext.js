@@ -1,181 +1,176 @@
 'use client';
 
-import { createContext, useContext, useState, useRef, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { getBackendUrl } from '../utils/backendUrl';
 import { createItineraryMarker, setMarkerNumber, clearMarker } from '../utils/markers';
+import { getDayColor } from '../utils/dayColors';
+import {
+    LEGACY_TRIP_STORAGE_KEY,
+    TRIP_STORAGE_KEY,
+    createEmptyTrip,
+    createId,
+    getActiveDay,
+    getOrderedStops,
+    legacyTripToV2,
+    normalizeStop,
+    normalizeTrip,
+    serializeTripForSave,
+    updateDayInTrip
+} from '../utils/tripModel';
+import { toTripV2 } from '../utils/legacyTrip';
 
 const TripContext = createContext();
 
+function buildRouteCoordinates(stops, shouldCloseCycle) {
+    const coords = stops
+        .filter(stop => stop?.lat != null && stop?.lng != null)
+        .map(stop => ({ lat: stop.lat, lng: stop.lng }));
+    if (shouldCloseCycle && coords.length > 0) coords.push(coords[0]);
+    return coords;
+}
+
+function getDayCentroid(day) {
+    const stops = (day?.stops || []).filter(stop => stop.lat != null && stop.lng != null);
+    if (!stops.length) return null;
+    return {
+        lat: stops.reduce((sum, stop) => sum + Number(stop.lat), 0) / stops.length,
+        lng: stops.reduce((sum, stop) => sum + Number(stop.lng), 0) / stops.length,
+    };
+}
+
 export function TripProvider({ children }) {
     const [mapLoaded, setMapLoaded] = useState(false);
-    const [selectedLocations, setSelectedLocations] = useState([]);
+    const [trip, setTrip] = useState(() => createEmptyTrip());
+    const [activeDayId, setActiveDayId] = useState(null);
     const [currentPlace, setCurrentPlace] = useState(null);
     const [map, setMap] = useState(null);
     const [currentMarker, setCurrentMarker] = useState(null);
-    const [optimizedRoute, setOptimizedRoute] = useState(null);
-    const [routePolyline, setRoutePolyline] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isLocationSelected, setIsLocationSelected] = useState(true);
-    const [startIndex, setStartIndex] = useState(null);
-    const [endIndex, setEndIndex] = useState(null);
-    // Mobile panel navigation: 'none' | 'itinerary' | 'route' | 'chat'
     const [activePanel, setActivePanel] = useState('none');
-    // Chat height for mobile: 'minimized' | 'partial' | 'full'
     const [chatHeight, setChatHeight] = useState('full');
-    // Sidebar and Route panel heights for mobile: 'partial' | 'full'
     const [sidebarHeight, setSidebarHeight] = useState('full');
     const [routeHeight, setRouteHeight] = useState('full');
-    // Weather state
     const [weatherData, setWeatherData] = useState(null);
     const [isLoadingWeather, setIsLoadingWeather] = useState(false);
-    // Chat session ID for trip association
-    const [currentChatSessionId, setCurrentChatSessionId] = useState(null);
+    const [optimizationRunId, setOptimizationRunId] = useState(0);
 
+    const markersRef = useRef(new Map());
+    const routePolylineRef = useRef(null);
+    const hasRestoredRef = useRef(false);
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-    // Track if we've already restored from localStorage to prevent duplicate restoration
-    // Also controls when saves are allowed (only after restore attempt)
-    const hasRestoredRef = useRef(false);
+    const activeDay = useMemo(() => getActiveDay(trip, activeDayId), [trip, activeDayId]);
+    const selectedLocations = activeDay?.stops || [];
+    const optimizedRoute = activeDay?.route?.order?.length ? activeDay.route.order : null;
+    const startIndex = activeDay?.route?.startStopId
+        ? selectedLocations.findIndex(stop => stop.id === activeDay.route.startStopId)
+        : null;
+    const endIndex = activeDay?.route?.endStopId
+        ? selectedLocations.findIndex(stop => stop.id === activeDay.route.endStopId)
+        : null;
+    const normalizedStartIndex = startIndex === -1 ? null : startIndex;
+    const normalizedEndIndex = endIndex === -1 ? null : endIndex;
+    const currentChatSessionId = trip.chatSessionId || null;
+    const hasAnyOptimizedRoute = trip.days.some(day => day.route?.order?.length);
+    const hasOptimizableDay = trip.days.some(day => day.stops.length >= 2);
+    const needsTripOptimization = trip.days.some(day =>
+        day.stops.length >= 2 && (!day.route?.order?.length || day.route.order.length < day.stops.length)
+    );
 
-    // Save itinerary state to localStorage whenever it changes
+    const orderedRouteStops = useMemo(() => getOrderedStops(activeDay), [activeDay]);
+    const optimizedCoords = useMemo(() => {
+        if (!optimizedRoute) return [];
+        return orderedRouteStops.map(stop => ({
+            id: stop.id,
+            name: stop.name,
+            address: stop.address || '',
+            lat: stop.lat,
+            lng: stop.lng
+        }));
+    }, [optimizedRoute, orderedRouteStops]);
+
+    const clearRoutePolyline = useCallback(() => {
+        if (routePolylineRef.current) {
+            routePolylineRef.current.setMap(null);
+            routePolylineRef.current = null;
+        }
+    }, []);
+
+    const clearRouteForActiveDay = useCallback(() => {
+        if (!activeDay) return;
+        setTrip(prev => updateDayInTrip(prev, activeDay.id, day => ({ ...day, route: null })));
+        clearRoutePolyline();
+    }, [activeDay, clearRoutePolyline]);
+
+    const redrawRoute = useCallback((day = activeDay, targetMap = map) => {
+        if (!targetMap || !day?.route?.order?.length) {
+            clearRoutePolyline();
+            return;
+        }
+
+        const dayIndex = trip.days.findIndex(candidate => candidate.id === day.id);
+        const dayColor = getDayColor(dayIndex < 0 ? 0 : dayIndex);
+        const orderedStops = getOrderedStops(day);
+        const routeCoordinates = buildRouteCoordinates(orderedStops, !day.route.endStopId);
+
+        if (routePolylineRef.current) {
+            routePolylineRef.current.setMap(null);
+            routePolylineRef.current = null;
+        }
+        if (routeCoordinates.length === 0) return;
+        routePolylineRef.current = new window.google.maps.Polyline({
+            path: routeCoordinates,
+            geodesic: true,
+            strokeColor: dayColor.bg,
+            strokeOpacity: 1.0,
+            strokeWeight: 3,
+            map: targetMap
+        });
+    }, [activeDay, clearRoutePolyline, map, trip.days]);
+
     useEffect(() => {
-        // Don't save until restore has been attempted (prevents overwriting saved data on initial load)
+        if (!activeDayId && trip.days.length > 0) {
+            setActiveDayId(trip.days[0].id);
+        }
+    }, [activeDayId, trip.days]);
+
+    useEffect(() => {
         if (!hasRestoredRef.current) return;
+        localStorage.setItem(TRIP_STORAGE_KEY, JSON.stringify({ trip, activeDayId, weatherData }));
+    }, [trip, activeDayId, weatherData]);
 
-        const stateToSave = {
-            selectedLocations: selectedLocations.map(loc => ({
-                name: loc.name,
-                lat: loc.lat,
-                lng: loc.lng,
-                address: loc.address || '',
-                placeId: loc.placeId || null
-            })),
-            optimizedRoute,
-            startIndex,
-            endIndex,
-            weatherData,
-            currentChatSessionId
-        };
-
-        localStorage.setItem('pathwise_itinerary', JSON.stringify(stateToSave));
-    }, [selectedLocations, optimizedRoute, startIndex, endIndex, weatherData, currentChatSessionId]);
-
-    // Restore itinerary state from localStorage when map is ready
     useEffect(() => {
         if (!map || !mapLoaded || hasRestoredRef.current) return;
-
-        // Mark restore as attempted (allows saving to begin)
         hasRestoredRef.current = true;
 
-        const savedState = localStorage.getItem('pathwise_itinerary');
+        const savedV2 = localStorage.getItem(TRIP_STORAGE_KEY);
+        const savedLegacy = localStorage.getItem(LEGACY_TRIP_STORAGE_KEY);
+        const savedState = savedV2 || savedLegacy;
         if (!savedState) return;
 
         try {
             const parsed = JSON.parse(savedState);
-
-            // Only restore if there are locations saved
-            if (!parsed.selectedLocations || parsed.selectedLocations.length === 0) return;
-
-            // Create a map from original index to route position for numbering (if optimized route exists)
-            const routePositionMap = {};
-            if (parsed.optimizedRoute) {
-                parsed.optimizedRoute.forEach((originalIndex, routePosition) => {
-                    routePositionMap[originalIndex] = routePosition + 1;
-                });
-            }
-
-            // Restore locations and create markers
-            const restoredLocations = parsed.selectedLocations.map((loc, index) => {
-                const marker = createItineraryMarker({
-                    map: map,
-                    position: { lat: loc.lat, lng: loc.lng },
-                    title: loc.name,
-                    number: routePositionMap[index] || null
-                });
-                return { ...loc, marker };
-            });
-
-            setSelectedLocations(restoredLocations);
-
-            if (parsed.optimizedRoute) {
-                setOptimizedRoute(parsed.optimizedRoute);
-
-                // Re-draw polyline (guard against stale saved state)
-                const routeCoordinates = parsed.optimizedRoute
-                    .filter(index => restoredLocations[index])
-                    .map(index => ({
-                        lat: restoredLocations[index].lat,
-                        lng: restoredLocations[index].lng
-                    }));
-
-                // Only complete the cycle if no end_index is specified
-                if (routeCoordinates.length > 0 && (parsed.endIndex === undefined || parsed.endIndex === null)) {
-                    routeCoordinates.push(routeCoordinates[0]);
-                }
-
-                const newPolyline = new window.google.maps.Polyline({
-                    path: routeCoordinates,
-                    geodesic: true,
-                    strokeColor: '#FF0000',
-                    strokeOpacity: 1.0,
-                    strokeWeight: 2,
-                    map: map
-                });
-
-                setRoutePolyline(newPolyline);
-
-                // Fit bounds to show the route
-                const bounds = new window.google.maps.LatLngBounds();
-                routeCoordinates.forEach(coord => bounds.extend(coord));
-                map.fitBounds(bounds);
-            } else {
-                // Just fit bounds to show all locations
-                if (restoredLocations.length > 0) {
-                    const bounds = new window.google.maps.LatLngBounds();
-                    restoredLocations.forEach(loc => bounds.extend({ lat: loc.lat, lng: loc.lng }));
-                    map.fitBounds(bounds);
-                }
-            }
-
-            if (parsed.startIndex !== undefined) setStartIndex(parsed.startIndex);
-            if (parsed.endIndex !== undefined) setEndIndex(parsed.endIndex);
+            const restoredTrip = savedV2 ? normalizeTrip(parsed.trip || parsed) : legacyTripToV2(parsed);
+            setTrip(restoredTrip);
+            setActiveDayId(parsed.activeDayId || restoredTrip.days[0]?.id || null);
             if (parsed.weatherData) setWeatherData(parsed.weatherData);
-            if (parsed.currentChatSessionId) setCurrentChatSessionId(parsed.currentChatSessionId);
-
             toast.success('Previous itinerary restored');
         } catch (error) {
             console.error('Error restoring itinerary from localStorage:', error);
         }
     }, [map, mapLoaded]);
 
-    // Re-attach markers and polyline when the map instance is recreated
-    // (Map.js rebuilds the map on theme change since colorScheme is set at construction)
-    const prevMapRef = useRef(null);
-    useEffect(() => {
-        const prevMap = prevMapRef.current;
-        prevMapRef.current = map;
-        if (!map || !prevMap || prevMap === map) return;
-
-        selectedLocations.forEach(location => {
-            if (location.marker) location.marker.map = map;
-        });
-        if (currentMarker) currentMarker.map = map;
-        if (routePolyline) routePolyline.setMap(map);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [map]);
-
-
-    // Load Google Maps Script
     useEffect(() => {
         if (window.google?.maps) {
             setMapLoaded(true);
             return;
         }
 
-        const existingScript = document.querySelector(`script[src^="https://maps.googleapis.com/maps/api/js"]`);
+        const existingScript = document.querySelector('script[src^="https://maps.googleapis.com/maps/api/js"]');
         if (existingScript) {
             if (!window.google?.maps) {
                 existingScript.addEventListener('load', () => setMapLoaded(true));
@@ -193,248 +188,209 @@ export function TripProvider({ children }) {
         document.head.appendChild(script);
     }, [apiKey]);
 
+    useEffect(() => {
+        if (!map || !activeDay) return;
+
+        const visibleStopIds = new Set(trip.days.flatMap(day => day.stops.map(stop => stop.id)));
+        markersRef.current.forEach((marker, stopId) => {
+            if (!visibleStopIds.has(stopId)) {
+                clearMarker(marker);
+                markersRef.current.delete(stopId);
+            }
+        });
+
+        trip.days.forEach((day, dayIndex) => {
+            const dayColor = getDayColor(dayIndex);
+            const routePositionMap = new Map((day.route?.order || []).map((stopId, index) => [stopId, index + 1]));
+            day.stops.forEach(stop => {
+                let marker = markersRef.current.get(stop.id);
+                if (!marker) {
+                    marker = createItineraryMarker({
+                        map,
+                        position: { lat: stop.lat, lng: stop.lng },
+                        title: stop.name,
+                        number: routePositionMap.get(stop.id) || null,
+                        color: dayColor
+                    });
+                    markersRef.current.set(stop.id, marker);
+                } else {
+                    marker.map = map;
+                    marker.position = { lat: stop.lat, lng: stop.lng };
+                    marker.title = stop.name;
+                    setMarkerNumber(marker, routePositionMap.get(stop.id) || null, dayColor);
+                }
+            });
+        });
+
+        redrawRoute(activeDay, map);
+    }, [activeDay, map, redrawRoute, trip.days]);
+
+    useEffect(() => {
+        if (!map || !activeDay) return;
+        const centroid = getDayCentroid(activeDay);
+        if (centroid) map.panTo(centroid);
+    }, [activeDayId, activeDay, map]);
+
+    const updateActiveDay = useCallback((updater) => {
+        if (!activeDay) return;
+        setTrip(prev => updateDayInTrip(prev, activeDay.id, updater));
+    }, [activeDay]);
 
     const addToItinerary = (placeOrEvent = null, markerToRemove = null) => {
         let place = placeOrEvent;
-        // Check if the argument is a synthetic event or missing location data
-        if (place && (place.nativeEvent || typeof place.lat === 'undefined')) {
-            place = null;
-        }
+        if (place && (place.nativeEvent || typeof place.lat === 'undefined')) place = null;
 
         const locationToAdd = place || currentPlace;
+        if (!locationToAdd || !activeDay) return;
 
-        if (locationToAdd && !selectedLocations.some(loc => loc.name === locationToAdd.name)) {
-            const marker = createItineraryMarker({
-                map: map,
-                position: { lat: locationToAdd.lat, lng: locationToAdd.lng },
-                title: locationToAdd.name
-            });
-
-            setSelectedLocations(prev => [...prev, { ...locationToAdd, marker }]);
-            setCurrentPlace(null);
-
-            // Clear the temporary marker (red one)
-            // Use explicitly passed marker or fallback to state
-            clearMarker(markerToRemove || currentMarker);
-            setCurrentMarker(null);
-
-            toast.success('Added to itinerary!');
-        } else if (selectedLocations.some(loc => loc.name === locationToAdd?.name)) {
+        if (selectedLocations.some(loc => loc.name === locationToAdd.name)) {
             toast.error('Location already in itinerary');
+            return;
         }
+
+        const stop = normalizeStop(locationToAdd);
+        updateActiveDay(day => ({ ...day, stops: [...day.stops, stop], route: null }));
+        setCurrentPlace(null);
+        clearMarker(markerToRemove || currentMarker);
+        setCurrentMarker(null);
+        toast.success('Added to itinerary!');
     };
 
     const removeLocation = (index) => {
-        const locationToRemove = selectedLocations[index];
-        clearMarker(locationToRemove.marker);
-
-        const newLocations = selectedLocations.filter((_, i) => i !== index);
-        setSelectedLocations(newLocations);
-
-        // Update start/end indices if they are affected
-        if (startIndex !== null) {
-            if (startIndex === index) {
-                setStartIndex(null);
-            } else if (startIndex > index) {
-                setStartIndex(startIndex - 1);
-            }
-        }
-        if (endIndex !== null) {
-            if (endIndex === index) {
-                setEndIndex(null);
-            } else if (endIndex > index) {
-                setEndIndex(endIndex - 1);
-            }
-        }
-
-        // Clear the optimized route when locations are modified
-        setOptimizedRoute(null);
-        if (routePolyline) {
-            routePolyline.setMap(null);
-            setRoutePolyline(null);
-        }
+        const stop = selectedLocations[index];
+        if (!stop) return;
+        clearMarker(markersRef.current.get(stop.id));
+        markersRef.current.delete(stop.id);
+        updateActiveDay(day => ({ ...day, stops: day.stops.filter(existing => existing.id !== stop.id), route: null }));
+        clearRoutePolyline();
         toast.success('Removed from itinerary');
     };
 
     const clearAllLocations = () => {
-        // Clear all markers from the map
-        selectedLocations.forEach(location => {
-            clearMarker(location.marker);
+        selectedLocations.forEach(stop => {
+            clearMarker(markersRef.current.get(stop.id));
+            markersRef.current.delete(stop.id);
         });
-
-        // Clear the optimized route
-        if (routePolyline) {
-            routePolyline.setMap(null);
-            setRoutePolyline(null);
-        }
-
-        // Reset states
-        setSelectedLocations([]);
-        setOptimizedRoute(null);
-        setStartIndex(null);
-        setEndIndex(null);
+        clearRoutePolyline();
+        updateActiveDay(day => ({ ...day, stops: [], route: null }));
         toast.success('All locations cleared');
     };
 
     const reorderLocations = (sourceIndex, destinationIndex) => {
-        const result = Array.from(selectedLocations);
-        const [removed] = result.splice(sourceIndex, 1);
-        result.splice(destinationIndex, 0, removed);
-
-        // Update start/end indices if they were affected by the reorder
-        let newStartIndex = startIndex;
-        let newEndIndex = endIndex;
-
-        if (startIndex !== null) {
-            if (startIndex === sourceIndex) {
-                // Start location was moved
-                newStartIndex = destinationIndex;
-            } else if (sourceIndex < startIndex && destinationIndex >= startIndex) {
-                // Item moved from before start to after start
-                newStartIndex = startIndex - 1;
-            } else if (sourceIndex > startIndex && destinationIndex <= startIndex) {
-                // Item moved from after start to before start
-                newStartIndex = startIndex + 1;
-            }
-        }
-
-        if (endIndex !== null) {
-            if (endIndex === sourceIndex) {
-                // End location was moved
-                newEndIndex = destinationIndex;
-            } else if (sourceIndex < endIndex && destinationIndex >= endIndex) {
-                // Item moved from before end to after end
-                newEndIndex = endIndex - 1;
-            } else if (sourceIndex > endIndex && destinationIndex <= endIndex) {
-                // Item moved from after end to before end
-                newEndIndex = endIndex + 1;
-            }
-        }
-
-        setSelectedLocations(result);
-        if (startIndex !== null) setStartIndex(newStartIndex);
-        if (endIndex !== null) setEndIndex(newEndIndex);
-
-        // Clear optimized route when reordering
-        setOptimizedRoute(null);
-        if (routePolyline) {
-            routePolyline.setMap(null);
-            setRoutePolyline(null);
-        }
+        updateActiveDay(day => {
+            const stops = Array.from(day.stops);
+            const [removed] = stops.splice(sourceIndex, 1);
+            stops.splice(destinationIndex, 0, removed);
+            return { ...day, stops, route: null };
+        });
+        clearRoutePolyline();
     };
 
     const setStartLocation = (index) => {
-        if (index === startIndex) {
-            setStartIndex(null);
-        } else {
-            setStartIndex(index);
-        }
-        // Clear optimized route when start/end changes
-        setOptimizedRoute(null);
-        if (routePolyline) {
-            routePolyline.setMap(null);
-            setRoutePolyline(null);
-        }
+        const stop = selectedLocations[index];
+        if (!stop) return;
+        updateActiveDay(day => ({
+            ...day,
+            route: {
+                order: [],
+                startStopId: day.route?.startStopId === stop.id ? null : stop.id,
+                endStopId: day.route?.endStopId || null,
+                totalDistanceMiles: null,
+                optimizedAt: null
+            }
+        }));
+        clearRoutePolyline();
     };
 
     const setEndLocation = (index) => {
-        if (index === endIndex) {
-            setEndIndex(null);
-        } else {
-            setEndIndex(index);
-        }
-        // Clear optimized route when start/end changes
-        setOptimizedRoute(null);
-        if (routePolyline) {
-            routePolyline.setMap(null);
-            setRoutePolyline(null);
-        }
+        const stop = selectedLocations[index];
+        if (!stop) return;
+        updateActiveDay(day => ({
+            ...day,
+            route: {
+                order: [],
+                startStopId: day.route?.startStopId || null,
+                endStopId: day.route?.endStopId === stop.id ? null : stop.id,
+                totalDistanceMiles: null,
+                optimizedAt: null
+            }
+        }));
+        clearRoutePolyline();
     };
 
     const submitItinerary = async () => {
-        if (selectedLocations.length === 0) {
-            toast.error("No locations to submit.");
+        const daysToOptimize = trip.days.filter(day => day.stops.length >= 2);
+        if (daysToOptimize.length === 0) {
+            toast.error('Add at least two locations to a day before optimizing.');
             return;
         }
 
         setIsSubmitting(true);
-
-        const itineraryData = selectedLocations.map(location => ({
-            name: location.name,
-            lat: location.lat,
-            lng: location.lng
-        }));
-
         try {
-            const requestBody = { locations: itineraryData };
-            if (startIndex !== null) {
-                requestBody.start_index = startIndex;
-            }
-            if (endIndex !== null) {
-                requestBody.end_index = endIndex;
-            }
+            const optimizedDays = await Promise.all(trip.days.map(async (day) => {
+                if (day.stops.length < 2) {
+                    return { ...day, route: null };
+                }
 
-            const response = await fetch(`${getBackendUrl()}/submit-itinerary`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestBody),
-            });
+                const requestBody = {
+                    locations: day.stops.map(location => ({
+                        name: location.name,
+                        lat: location.lat,
+                        lng: location.lng
+                    }))
+                };
+                const startIndexForDay = day.route?.startStopId
+                    ? day.stops.findIndex(stop => stop.id === day.route.startStopId)
+                    : 0;
+                const endIndexForDay = day.route?.endStopId
+                    ? day.stops.findIndex(stop => stop.id === day.route.endStopId)
+                    : null;
 
-            if (response.ok) {
+                if (startIndexForDay !== -1) requestBody.start_index = startIndexForDay;
+                if (endIndexForDay !== null && endIndexForDay !== -1) requestBody.end_index = endIndexForDay;
+
+                const response = await fetch(`${getBackendUrl()}/submit-itinerary`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to optimize ${day.label || 'day'}`);
+                }
+
                 const data = await response.json();
-                setOptimizedRoute(data.optimized_route);
+                const routeOrder = data.optimized_route
+                    .filter(index => day.stops[index])
+                    .map(index => day.stops[index].id);
 
-                if (routePolyline) {
-                    routePolyline.setMap(null);
-                }
-
-                const routeCoordinates = data.optimized_route
-                    .filter(index => selectedLocations[index])
-                    .map(index => ({
-                        lat: selectedLocations[index].lat,
-                        lng: selectedLocations[index].lng
-                    }));
-
-                // Only complete the cycle if no end_index is specified (path vs cycle)
-                if (routeCoordinates.length > 0 && endIndex === null) {
-                    routeCoordinates.push(routeCoordinates[0]);
-                }
-
-                const newPolyline = new window.google.maps.Polyline({
-                    path: routeCoordinates,
-                    geodesic: true,
-                    strokeColor: '#FF0000',
-                    strokeOpacity: 1.0,
-                    strokeWeight: 2,
-                    map: map
-                });
-
-                setRoutePolyline(newPolyline);
-
-                // Update markers with numbered labels based on optimized route order
-                data.optimized_route.forEach((originalIndex, routePosition) => {
-                    const location = selectedLocations[originalIndex];
-                    if (location.marker) {
-                        setMarkerNumber(location.marker, routePosition + 1);
+                return {
+                    ...day,
+                    route: {
+                        order: routeOrder,
+                        startStopId: routeOrder[0] || null,
+                        endStopId: endIndexForDay !== null && endIndexForDay !== -1 ? routeOrder[routeOrder.length - 1] : null,
+                        totalDistanceMiles: null,
+                        optimizedAt: new Date().toISOString()
                     }
-                });
+                };
+            }));
 
-                const bounds = new window.google.maps.LatLngBounds();
-                routeCoordinates.forEach(coord => bounds.extend(coord));
-                map.fitBounds(bounds);
-
-                // Auto-switch to route panel on mobile
-                setActivePanel('route');
-
-                toast.success("Route optimized!");
-
-                // Fetch weather asynchronously (non-blocking)
-                fetchWeather(data.optimized_route.map(i => selectedLocations[i]).filter(Boolean));
-            } else {
-                toast.error('Failed to submit itinerary.');
+            const nextTrip = normalizeTrip({ ...trip, days: optimizedDays });
+            const preferredDay = getActiveDay(nextTrip, activeDayId);
+            const displayDay = preferredDay?.route?.order?.length
+                ? preferredDay
+                : nextTrip.days.find(day => day.route?.order?.length) || preferredDay;
+            setTrip(nextTrip);
+            if (displayDay?.id && displayDay.id !== activeDayId) {
+                setActiveDayId(displayDay.id);
             }
+            setActivePanel('route');
+            setOptimizationRunId(runId => runId + 1);
+            toast.success(daysToOptimize.length === 1 ? 'Route optimized!' : 'Routes optimized!');
+
+            const activeRouteStops = getOrderedStops(displayDay);
+            if (activeRouteStops.length) fetchWeather(activeRouteStops);
         } catch (error) {
             console.error('Error submitting itinerary:', error);
             toast.error('Error submitting itinerary.');
@@ -443,195 +399,91 @@ export function TripProvider({ children }) {
         }
     };
 
-    const optimizedCoords = useMemo(() => {
-        if (!optimizedRoute || !selectedLocations.length) return [];
-
-        // Route indices can briefly point past the array when locations change
-        // between an optimize request and its response — skip stale entries
-        return optimizedRoute
-            .filter(index => selectedLocations[index])
-            .map(index => ({
-                name: selectedLocations[index].name,
-                address: selectedLocations[index].address || '',
-                lat: selectedLocations[index].lat,
-                lng: selectedLocations[index].lng
-            }));
-    }, [optimizedRoute, selectedLocations]);
-
     const exportToGoogleMaps = () => {
-        if (!optimizedCoords || optimizedCoords.length === 0) {
-            toast.error("No optimized route to export");
+        if (!optimizedCoords.length) {
+            toast.error('No optimized route to export');
             return;
         }
 
-        const baseUrl = "https://www.google.com/maps/dir/";
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-        // Always use name + address for meaningful location names in Google Maps
-        // (coordinates result in "Dropped pin" which isn't useful to users)
         const waypoints = optimizedCoords
-            .map(loc => {
-                if (loc.address) {
-                    return encodeURIComponent(`${loc.name}, ${loc.address}`);
-                }
-                return encodeURIComponent(loc.name);
-            })
+            .map(loc => encodeURIComponent(loc.address ? `${loc.name}, ${loc.address}` : loc.name))
             .join('/');
-
-        const googleMapsUrl = `${baseUrl}${waypoints}`;
-
-        // On mobile, use direct navigation to avoid blank intermediate page
+        const googleMapsUrl = `https://www.google.com/maps/dir/${waypoints}`;
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (isMobile) {
             window.location.href = googleMapsUrl;
         } else {
             window.open(googleMapsUrl, '_blank');
         }
-        toast.success("Opening in Google Maps!");
+        toast.success('Opening in Google Maps!');
     };
 
-    // Reorder the optimized route (for manual adjustments after optimization)
     const reorderOptimizedRoute = (sourceIndex, destinationIndex) => {
-        if (!optimizedRoute || !optimizedCoords) return;
-
-        // Create new ordered array based on current optimizedCoords
-        const newOptimizedCoords = Array.from(optimizedCoords);
-        const [moved] = newOptimizedCoords.splice(sourceIndex, 1);
-        newOptimizedCoords.splice(destinationIndex, 0, moved);
-
-        // Find the original indices that correspond to the new order,
-        // dropping any entries that no longer exist in selectedLocations
-        const newOptimizedRoute = newOptimizedCoords.map(coord => {
-            return selectedLocations.findIndex(loc =>
-                loc.lat === coord.lat && loc.lng === coord.lng && loc.name === coord.name
-            );
-        }).filter(index => index !== -1);
-
-        setOptimizedRoute(newOptimizedRoute);
-
-        // Update marker labels to reflect new order
-        newOptimizedRoute.forEach((originalIndex, routePosition) => {
-            const location = selectedLocations[originalIndex];
-            if (location?.marker) {
-                setMarkerNumber(location.marker, routePosition + 1);
+        if (!optimizedRoute) return;
+        const newOrder = Array.from(optimizedRoute);
+        const [moved] = newOrder.splice(sourceIndex, 1);
+        newOrder.splice(destinationIndex, 0, moved);
+        updateActiveDay(day => ({
+            ...day,
+            route: {
+                ...(day.route || {}),
+                order: newOrder,
+                startStopId: newOrder[0] || null,
+                endStopId: day.route?.endStopId ? newOrder[newOrder.length - 1] : null,
+                optimizedAt: new Date().toISOString()
             }
-        });
-
-        // Redraw polyline with new order
-        if (routePolyline) {
-            routePolyline.setMap(null);
-        }
-
-        const routeCoordinates = newOptimizedRoute
-            .filter(index => selectedLocations[index])
-            .map(index => ({
-                lat: selectedLocations[index].lat,
-                lng: selectedLocations[index].lng
-            }));
-
-        // Only complete the cycle if no end_index is specified
-        if (routeCoordinates.length > 0 && endIndex === null) {
-            routeCoordinates.push(routeCoordinates[0]);
-        }
-
-        const newPolyline = new window.google.maps.Polyline({
-            path: routeCoordinates,
-            geodesic: true,
-            strokeColor: '#FF0000',
-            strokeOpacity: 1.0,
-            strokeWeight: 2,
-            map: map
-        });
-
-        setRoutePolyline(newPolyline);
+        }));
     };
 
-    const loadTrip = (trip) => {
-        // Clear current state first
-        clearAllLocations();
+    const addDay = () => {
+        const day = {
+            id: createId('day'),
+            date: null,
+            label: null,
+            stops: [],
+            route: null
+        };
+        setTrip(prev => normalizeTrip({ ...prev, days: [...prev.days, day] }));
+        setActiveDayId(day.id);
+    };
 
-        // Create a map from original index to route position for numbering
-        const routePositionMap = {};
-        trip.optimizedRoute.forEach((originalIndex, routePosition) => {
-            routePositionMap[originalIndex] = routePosition + 1;
-        });
-
-        // Restore locations and create markers with numbered labels
-        const newLocations = trip.locations.map((loc, index) => {
-            const marker = createItineraryMarker({
-                map: map,
-                position: { lat: loc.lat, lng: loc.lng },
-                title: loc.name,
-                number: routePositionMap[index] || null
-            });
-            return { ...loc, marker };
-        });
-
-        setSelectedLocations(newLocations);
-        setOptimizedRoute(trip.optimizedRoute);
-        if (trip.startIndex !== undefined) setStartIndex(trip.startIndex);
-        if (trip.endIndex !== undefined) setEndIndex(trip.endIndex);
-
-        // Re-draw polyline (guard against corrupt docs whose route outruns locations)
-        const routeCoordinates = trip.optimizedRoute
-            .filter(index => newLocations[index])
-            .map(index => ({
-                lat: newLocations[index].lat,
-                lng: newLocations[index].lng
-            }));
-
-        if (routeCoordinates.length > 0 && (trip.endIndex === undefined || trip.endIndex === null)) {
-            routeCoordinates.push(routeCoordinates[0]);
+    const removeDay = (dayId) => {
+        if (trip.days.length <= 1) {
+            toast.error('Trip needs at least one day');
+            return;
         }
+        if (activeDayId === dayId) {
+            clearRoutePolyline();
+        }
+        const nextDays = trip.days.filter(day => day.id !== dayId);
+        setTrip(prev => normalizeTrip({ ...prev, days: nextDays }));
+        if (activeDayId === dayId) setActiveDayId(nextDays[0]?.id || null);
+    };
 
-        const newPolyline = new window.google.maps.Polyline({
-            path: routeCoordinates,
-            geodesic: true,
-            strokeColor: '#FF0000',
-            strokeOpacity: 1.0,
-            strokeWeight: 2,
-            map: map
-        });
+    const loadTrip = (incomingTrip) => {
+        markersRef.current.forEach(marker => clearMarker(marker));
+        markersRef.current.clear();
+        clearRoutePolyline();
 
-        setRoutePolyline(newPolyline);
-
-        // Fit bounds
-        const bounds = new window.google.maps.LatLngBounds();
-        routeCoordinates.forEach(coord => bounds.extend(coord));
-        map.fitBounds(bounds);
-
-        // Clear old weather and fetch new weather for loaded trip
+        const nextTrip = toTripV2(incomingTrip);
+        setTrip(nextTrip);
+        setActiveDayId(nextTrip.days[0]?.id || null);
         setWeatherData(null);
-        fetchWeather(newLocations);
-
-        // Set chat session ID if saved with trip (will trigger ChatInterface to load it)
-        if (trip.chatSessionId) {
-            setCurrentChatSessionId(trip.chatSessionId);
-        } else {
-            setCurrentChatSessionId(null);
-        }
-
-        toast.success(`Trip loaded!`);
+        if (nextTrip.days[0]?.stops?.length) fetchWeather(nextTrip.days[0].stops);
+        toast.success('Trip loaded!');
     };
 
-    // Fetch weather for optimized route locations (async, non-blocking)
     const fetchWeather = async (locations) => {
         if (!locations || locations.length === 0) return;
 
         setIsLoadingWeather(true);
         setWeatherData(null);
-
         try {
             const response = await fetch(`${getBackendUrl()}/weather`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    locations: locations.map(loc => ({
-                        name: loc.name,
-                        lat: loc.lat,
-                        lng: loc.lng
-                    }))
+                    locations: locations.map(loc => ({ name: loc.name, lat: loc.lat, lng: loc.lng }))
                 }),
             });
 
@@ -640,7 +492,6 @@ export function TripProvider({ children }) {
                 setWeatherData(data);
                 toast.success('Weather forecast loaded!');
             } else {
-                console.error('Weather fetch failed:', response.status);
                 toast.error('Failed to load weather');
             }
         } catch (error) {
@@ -651,7 +502,23 @@ export function TripProvider({ children }) {
         }
     };
 
+    const setCurrentChatSessionId = (chatSessionId) => {
+        setTrip(prev => normalizeTrip({ ...prev, chatSessionId }));
+    };
+
     const value = {
+        trip,
+        setTrip,
+        activeDayId,
+        setActiveDayId,
+        activeDay,
+        hasAnyOptimizedRoute,
+        hasOptimizableDay,
+        needsTripOptimization,
+        optimizationRunId,
+        addDay,
+        removeDay,
+        serializeCurrentTrip: () => serializeTripForSave(trip),
         mapLoaded,
         selectedLocations,
         currentPlace,
@@ -661,7 +528,6 @@ export function TripProvider({ children }) {
         currentMarker,
         setCurrentMarker,
         optimizedRoute,
-        routePolyline,
         isSubmitting,
         isChatOpen,
         setIsChatOpen,
@@ -669,8 +535,8 @@ export function TripProvider({ children }) {
         setIsSidebarOpen,
         isLocationSelected,
         setIsLocationSelected,
-        startIndex,
-        endIndex,
+        startIndex: normalizedStartIndex,
+        endIndex: normalizedEndIndex,
         addToItinerary,
         removeLocation,
         clearAllLocations,

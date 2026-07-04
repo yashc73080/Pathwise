@@ -102,9 +102,6 @@ class FirestoreTripRepository(TripRepository):
         self.collection.document(trip_id).delete()
 
     def list_for_owner(self, owner_id: str) -> List[Trip]:
-        docs = (
-            self.collection.where("ownerId", "==", owner_id)
-            .order_by("updatedAt", direction=firestore.Query.DESCENDING)
-            .stream()
-        )
-        return [Trip.from_dict(doc.to_dict(), doc.id) for doc in docs]
+        docs = self.collection.where("ownerId", "==", owner_id).stream()
+        trips = [Trip.from_dict(doc.to_dict(), doc.id) for doc in docs]
+        return sorted(trips, key=lambda trip: str(trip.updatedAt or ""), reverse=True)

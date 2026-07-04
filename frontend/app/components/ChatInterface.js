@@ -6,6 +6,7 @@ import { useAuth } from '../context/authContext';
 import { useTrip } from '../context/TripContext';
 import { toast } from 'react-hot-toast';
 import { getBackendUrl } from '../utils/backendUrl';
+import { createPreviewMarker, clearMarker } from '../utils/markers';
 
 export default function ChatInterface({ selectedLocations, onNewChat, onShowHistory, showHistoryProp, setShowHistoryProp, newChatTrigger }) {
   const { currentUser } = useAuth();
@@ -79,9 +80,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
       }
 
       // Clear any existing preview marker
-      if (currentMarker) {
-        currentMarker.setMap(null);
-      }
+      clearMarker(currentMarker);
 
       // Set the current place for the sidebar/popup
       setCurrentPlace({
@@ -93,11 +92,10 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
       });
 
       // Create a red preview marker
-      const marker = new window.google.maps.Marker({
+      const marker = createPreviewMarker({
         map: map,
         position: { lat, lng },
-        title: place.name,
-        animation: window.google.maps.Animation.DROP
+        title: place.name
       });
 
       setCurrentMarker(marker);

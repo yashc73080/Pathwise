@@ -152,6 +152,24 @@ body {
   -webkit-line-clamp: 2;
 }
 
+/* Drop-in animation for AdvancedMarkerElement preview pins */
+@keyframes marker-drop {
+  0% {
+    transform: translateY(-24px);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.marker-drop {
+  animation: marker-drop 0.3s ease-out;
+}
+
 /* Google Maps SearchBox Autocomplete Styling */
 .pac-container {
   border-radius: 12px;

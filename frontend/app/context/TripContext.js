@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useRef, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { getBackendUrl } from '../utils/backendUrl';
+import { createItineraryMarker, setMarkerNumber, clearMarker } from '../utils/markers';
 
 const TripContext = createContext();
 
@@ -11,7 +12,6 @@ export function TripProvider({ children }) {
     const [selectedLocations, setSelectedLocations] = useState([]);
     const [currentPlace, setCurrentPlace] = useState(null);
     const [map, setMap] = useState(null);
-    const [searchBox, setSearchBox] = useState(null);
     const [currentMarker, setCurrentMarker] = useState(null);
     const [optimizedRoute, setOptimizedRoute] = useState(null);
     const [routePolyline, setRoutePolyline] = useState(null);
@@ -89,27 +89,11 @@ export function TripProvider({ children }) {
 
             // Restore locations and create markers
             const restoredLocations = parsed.selectedLocations.map((loc, index) => {
-                const routeNumber = routePositionMap[index];
-                const marker = new window.google.maps.Marker({
+                const marker = createItineraryMarker({
                     map: map,
                     position: { lat: loc.lat, lng: loc.lng },
                     title: loc.name,
-                    label: routeNumber ? {
-                        text: String(routeNumber),
-                        color: 'white',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                    } : null,
-                    icon: routeNumber ? {
-                        path: window.google.maps.SymbolPath.CIRCLE,
-                        scale: 12,
-                        fillColor: '#2563eb',
-                        fillOpacity: 1,
-                        strokeColor: '#1e40af',
-                        strokeWeight: 2
-                    } : {
-                        url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                    }
+                    number: routePositionMap[index] || null
                 });
                 return { ...loc, marker };
             });
@@ -167,6 +151,22 @@ export function TripProvider({ children }) {
         }
     }, [map, mapLoaded]);
 
+    // Re-attach markers and polyline when the map instance is recreated
+    // (Map.js rebuilds the map on theme change since colorScheme is set at construction)
+    const prevMapRef = useRef(null);
+    useEffect(() => {
+        const prevMap = prevMapRef.current;
+        prevMapRef.current = map;
+        if (!map || !prevMap || prevMap === map) return;
+
+        selectedLocations.forEach(location => {
+            if (location.marker) location.marker.map = map;
+        });
+        if (currentMarker) currentMarker.map = map;
+        if (routePolyline) routePolyline.setMap(map);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [map]);
+
 
     // Load Google Maps Script
     useEffect(() => {
@@ -186,7 +186,7 @@ export function TripProvider({ children }) {
         }
 
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker&v=weekly`;
         script.async = true;
         script.defer = true;
         script.onload = () => setMapLoaded(true);
@@ -204,13 +204,10 @@ export function TripProvider({ children }) {
         const locationToAdd = place || currentPlace;
 
         if (locationToAdd && !selectedLocations.some(loc => loc.name === locationToAdd.name)) {
-            const marker = new window.google.maps.Marker({
+            const marker = createItineraryMarker({
                 map: map,
                 position: { lat: locationToAdd.lat, lng: locationToAdd.lng },
-                title: locationToAdd.name,
-                icon: {
-                    url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                }
+                title: locationToAdd.name
             });
 
             setSelectedLocations(prev => [...prev, { ...locationToAdd, marker }]);
@@ -218,10 +215,7 @@ export function TripProvider({ children }) {
 
             // Clear the temporary marker (red one)
             // Use explicitly passed marker or fallback to state
-            const markerToClear = markerToRemove || currentMarker;
-            if (markerToClear) {
-                markerToClear.setMap(null);
-            }
+            clearMarker(markerToRemove || currentMarker);
             setCurrentMarker(null);
 
             toast.success('Added to itinerary!');
@@ -232,9 +226,7 @@ export function TripProvider({ children }) {
 
     const removeLocation = (index) => {
         const locationToRemove = selectedLocations[index];
-        if (locationToRemove.marker) {
-            locationToRemove.marker.setMap(null);
-        }
+        clearMarker(locationToRemove.marker);
 
         const newLocations = selectedLocations.filter((_, i) => i !== index);
         setSelectedLocations(newLocations);
@@ -267,9 +259,7 @@ export function TripProvider({ children }) {
     const clearAllLocations = () => {
         // Clear all markers from the map
         selectedLocations.forEach(location => {
-            if (location.marker) {
-                location.marker.setMap(null);
-            }
+            clearMarker(location.marker);
         });
 
         // Clear the optimized route
@@ -427,21 +417,7 @@ export function TripProvider({ children }) {
                 data.optimized_route.forEach((originalIndex, routePosition) => {
                     const location = selectedLocations[originalIndex];
                     if (location.marker) {
-                        location.marker.setLabel({
-                            text: String(routePosition + 1),
-                            color: 'white',
-                            fontSize: '12px',
-                            fontWeight: 'bold'
-                        });
-                        // Use a custom icon that works better with labels
-                        location.marker.setIcon({
-                            path: window.google.maps.SymbolPath.CIRCLE,
-                            scale: 12,
-                            fillColor: '#2563eb',
-                            fillOpacity: 1,
-                            strokeColor: '#1e40af',
-                            strokeWeight: 2
-                        });
+                        setMarkerNumber(location.marker, routePosition + 1);
                     }
                 });
 
@@ -536,12 +512,7 @@ export function TripProvider({ children }) {
         newOptimizedRoute.forEach((originalIndex, routePosition) => {
             const location = selectedLocations[originalIndex];
             if (location?.marker) {
-                location.marker.setLabel({
-                    text: String(routePosition + 1),
-                    color: 'white',
-                    fontSize: '12px',
-                    fontWeight: 'bold'
-                });
+                setMarkerNumber(location.marker, routePosition + 1);
             }
         });
 
@@ -586,27 +557,11 @@ export function TripProvider({ children }) {
 
         // Restore locations and create markers with numbered labels
         const newLocations = trip.locations.map((loc, index) => {
-            const routeNumber = routePositionMap[index];
-            const marker = new window.google.maps.Marker({
+            const marker = createItineraryMarker({
                 map: map,
                 position: { lat: loc.lat, lng: loc.lng },
                 title: loc.name,
-                label: routeNumber ? {
-                    text: String(routeNumber),
-                    color: 'white',
-                    fontSize: '12px',
-                    fontWeight: 'bold'
-                } : null,
-                icon: routeNumber ? {
-                    path: window.google.maps.SymbolPath.CIRCLE,
-                    scale: 12,
-                    fillColor: '#2563eb',
-                    fillOpacity: 1,
-                    strokeColor: '#1e40af',
-                    strokeWeight: 2
-                } : {
-                    url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                }
+                number: routePositionMap[index] || null
             });
             return { ...loc, marker };
         });
@@ -703,8 +658,6 @@ export function TripProvider({ children }) {
         setCurrentPlace,
         map,
         setMap,
-        searchBox,
-        setSearchBox,
         currentMarker,
         setCurrentMarker,
         optimizedRoute,

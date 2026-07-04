@@ -30,4 +30,8 @@
 
 ## Other:
 - [x] Google Analytics
-- [ ] Tests (A/B or QA?)
+
+## Improvements
+- [ ] Multi-day planning
+- [ ] Export to calendars
+- [ ] MCP Server

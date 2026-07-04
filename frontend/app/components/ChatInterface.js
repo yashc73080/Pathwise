@@ -8,7 +8,7 @@ import { toast } from 'react-hot-toast';
 
 export default function ChatInterface({ selectedLocations, onNewChat, onShowHistory, showHistoryProp, setShowHistoryProp, newChatTrigger }) {
   const { currentUser } = useAuth();
-  const { setCurrentPlace, setCurrentMarker, currentMarker, map, setChatHeight, setActivePanel, activePanel, currentChatSessionId, setCurrentChatSessionId, addToItinerary } = useTrip();
+  const { setCurrentPlace, setCurrentMarker, currentMarker, map, setChatHeight, setActivePanel, activePanel, currentChatSessionId, setCurrentChatSessionId, addToItinerary, submitItinerary } = useTrip();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -24,22 +24,41 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
   const textareaRef = useRef(null);
   const isNewChatRef = useRef(false); // Prevents auto-loading after starting new chat
 
-  // Parse message content to extract structured place data
+  // Parse message content to extract structured place data and agent commands
   const parseMessageContent = (content) => {
     const placesMatch = content.match(/<!--PLACES_DATA:(.*?):PLACES_DATA-->/);
+    const addLocationsMatch = content.match(/<!--ADD_LOCATIONS:(.*?):ADD_LOCATIONS-->/);
+    const optimizeRouteMatch = content.match(/<!--OPTIMIZE_ROUTE:(.*?):OPTIMIZE_ROUTE-->/);
+
     let places = null;
+    let addLocations = null;
+    let shouldOptimize = false;
     let textContent = content;
 
     if (placesMatch) {
       try {
         places = JSON.parse(placesMatch[1]);
-        textContent = content.replace(/<!--PLACES_DATA:.*?:PLACES_DATA-->/g, '').trim();
+        textContent = textContent.replace(/<!--PLACES_DATA:.*?:PLACES_DATA-->/g, '');
       } catch (e) {
         console.error('Error parsing places data:', e);
       }
     }
 
-    return { places, textContent };
+    if (addLocationsMatch) {
+      try {
+        addLocations = JSON.parse(addLocationsMatch[1]);
+        textContent = textContent.replace(/<!--ADD_LOCATIONS:.*?:ADD_LOCATIONS-->/g, '');
+      } catch (e) {
+        console.error('Error parsing add locations data:', e);
+      }
+    }
+
+    if (optimizeRouteMatch) {
+      shouldOptimize = optimizeRouteMatch[1] === 'true';
+      textContent = textContent.replace(/<!--OPTIMIZE_ROUTE:.*?:OPTIMIZE_ROUTE-->/g, '');
+    }
+
+    return { places, addLocations, shouldOptimize, textContent: textContent.trim() };
   };
 
   // Location Card component
@@ -177,6 +196,70 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
       </div>
     );
   };
+
+  // Handler to add all suggested places at once
+  const handleAddAllLocations = (places) => {
+    if (!places || places.length === 0) return;
+
+    let addedCount = 0;
+    places.forEach(place => {
+      const lat = place.location?.lat || place.lat;
+      const lng = place.location?.lng || place.lng;
+
+      if (lat && lng) {
+        addToItinerary({
+          name: place.name,
+          address: place.address,
+          lat: lat,
+          lng: lng,
+          placeId: place.place_id
+        });
+        addedCount++;
+      }
+    });
+
+    if (addedCount > 0) {
+      toast.success(`Added ${addedCount} locations to itinerary!`);
+      // On mobile, minimize chat to show map
+      if (window.innerWidth < 768 && activePanel === 'chat') {
+        setChatHeight('partial');
+      }
+    }
+  };
+
+  // Process agent tool commands when messages change
+  const processedMessagesRef = useRef(new Set());
+
+  useEffect(() => {
+    // Find the latest assistant message with commands
+    const latestAssistantIndex = messages.findLastIndex(m => m.role === 'assistant');
+    if (latestAssistantIndex < 0) return;
+
+    const latestMessage = messages[latestAssistantIndex];
+    const messageKey = `${latestAssistantIndex}-${latestMessage.content.slice(0, 50)}`;
+
+    // Skip if we've already processed this message
+    if (processedMessagesRef.current.has(messageKey)) return;
+
+    const { addLocations, shouldOptimize } = parseMessageContent(latestMessage.content);
+
+    // Process add locations command
+    if (addLocations && addLocations.length > 0) {
+      processedMessagesRef.current.add(messageKey);
+      console.log('Agent auto-adding locations:', addLocations.length);
+      handleAddAllLocations(addLocations);
+    }
+
+    // Process optimize route command
+    if (shouldOptimize) {
+      processedMessagesRef.current.add(messageKey);
+      console.log('Agent triggering route optimization');
+      // Small delay to let locations be added first
+      setTimeout(() => {
+        submitItinerary();
+      }, 500);
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -485,6 +568,18 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
                     {places.map((place, placeIndex) => (
                       <LocationCard key={placeIndex} place={place} />
                     ))}
+                    {/* Add All button - shown when 2+ locations */}
+                    {places.length >= 2 && (
+                      <button
+                        onClick={() => handleAddAllLocations(places)}
+                        className="w-full mt-2 py-2 px-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 text-sm font-medium shadow-sm hover:shadow-md"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add All {places.length} to Itinerary
+                      </button>
+                    )}
                   </div>
                 )}
 

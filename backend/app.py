@@ -47,9 +47,17 @@ except Exception as e:
 
 
 app = Flask(__name__)
-# Allow all origins in development for mobile testing on local network
-# Allow requests from localhost (for testing) AND pathwise.web.app (for production)
-CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "https://pathwise.web.app"]}})
+# Allowed origins: localhost + private LAN IPs (dev/mobile testing on local
+# network), Capacitor webview origins (native app), and production hosting.
+CORS(app, resources={r"/*": {"origins": [
+    "http://localhost:3000",
+    r"http://192\.168\.\d{1,3}\.\d{1,3}:3000",
+    r"http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}:3000",
+    "capacitor://localhost",
+    "http://localhost",
+    "https://localhost",
+    "https://pathwise.web.app",
+]}})
 
 @app.route('/')
 def home():

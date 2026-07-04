@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../context/authContext';
 import { useTrip } from '../context/TripContext';
 import { toast } from 'react-hot-toast';
+import { getBackendUrl } from '../utils/backendUrl';
 
 export default function ChatInterface({ selectedLocations, onNewChat, onShowHistory, showHistoryProp, setShowHistoryProp, newChatTrigger }) {
   const { currentUser } = useAuth();
@@ -308,7 +309,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
     if (!currentUser) return;
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/chat/sessions`, {
+      const response = await fetch(`${getBackendUrl()}/chat/sessions`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -337,7 +338,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
     if (!currentUser) return;
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/chat/sessions`, {
+      const response = await fetch(`${getBackendUrl()}/chat/sessions`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -355,13 +356,21 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
     try {
       setIsLoading(true);
       const token = await currentUser.getIdToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/chat/sessions/${sessionId}/messages`, {
+      const response = await fetch(`${getBackendUrl()}/chat/sessions/${sessionId}/messages`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       if (response.ok) {
         const data = await response.json();
+        // Historical messages may still contain agent command markers
+        // (ADD_LOCATIONS / OPTIMIZE_ROUTE). Mark them as processed so loading
+        // an old session never re-executes commands against the current trip.
+        data.messages.forEach((m, i) => {
+          if (m.role === 'assistant') {
+            processedMessagesRef.current.add(`${i}-${m.content.slice(0, 50)}`);
+          }
+        });
         setMessages(data.messages);
         setCurrentSessionId(sessionId);
         setCurrentChatSessionId(sessionId); // Sync with context for trip saving
@@ -403,7 +412,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
         setCurrentChatSessionId(sessionId); // Sync with context for trip saving
       }
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const backendUrl = getBackendUrl();
       // Serialize locations to JSON to preserve coordinates
       const locationsData = selectedLocations.map(loc => ({
         name: loc.name,

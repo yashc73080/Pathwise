@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useRef, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
+import { getBackendUrl } from '../utils/backendUrl';
 
 const TripContext = createContext();
 
@@ -118,14 +119,16 @@ export function TripProvider({ children }) {
             if (parsed.optimizedRoute) {
                 setOptimizedRoute(parsed.optimizedRoute);
 
-                // Re-draw polyline
-                const routeCoordinates = parsed.optimizedRoute.map(index => ({
-                    lat: restoredLocations[index].lat,
-                    lng: restoredLocations[index].lng
-                }));
+                // Re-draw polyline (guard against stale saved state)
+                const routeCoordinates = parsed.optimizedRoute
+                    .filter(index => restoredLocations[index])
+                    .map(index => ({
+                        lat: restoredLocations[index].lat,
+                        lng: restoredLocations[index].lng
+                    }));
 
                 // Only complete the cycle if no end_index is specified
-                if (parsed.endIndex === undefined || parsed.endIndex === null) {
+                if (routeCoordinates.length > 0 && (parsed.endIndex === undefined || parsed.endIndex === null)) {
                     routeCoordinates.push(routeCoordinates[0]);
                 }
 
@@ -381,7 +384,7 @@ export function TripProvider({ children }) {
                 requestBody.end_index = endIndex;
             }
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/submit-itinerary`, {
+            const response = await fetch(`${getBackendUrl()}/submit-itinerary`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -397,13 +400,15 @@ export function TripProvider({ children }) {
                     routePolyline.setMap(null);
                 }
 
-                const routeCoordinates = data.optimized_route.map(index => ({
-                    lat: selectedLocations[index].lat,
-                    lng: selectedLocations[index].lng
-                }));
+                const routeCoordinates = data.optimized_route
+                    .filter(index => selectedLocations[index])
+                    .map(index => ({
+                        lat: selectedLocations[index].lat,
+                        lng: selectedLocations[index].lng
+                    }));
 
                 // Only complete the cycle if no end_index is specified (path vs cycle)
-                if (endIndex === null) {
+                if (routeCoordinates.length > 0 && endIndex === null) {
                     routeCoordinates.push(routeCoordinates[0]);
                 }
 
@@ -450,7 +455,7 @@ export function TripProvider({ children }) {
                 toast.success("Route optimized!");
 
                 // Fetch weather asynchronously (non-blocking)
-                fetchWeather(data.optimized_route.map(i => selectedLocations[i]));
+                fetchWeather(data.optimized_route.map(i => selectedLocations[i]).filter(Boolean));
             } else {
                 toast.error('Failed to submit itinerary.');
             }
@@ -465,12 +470,16 @@ export function TripProvider({ children }) {
     const optimizedCoords = useMemo(() => {
         if (!optimizedRoute || !selectedLocations.length) return [];
 
-        return optimizedRoute.map(index => ({
-            name: selectedLocations[index].name,
-            address: selectedLocations[index].address || '',
-            lat: selectedLocations[index].lat,
-            lng: selectedLocations[index].lng
-        }));
+        // Route indices can briefly point past the array when locations change
+        // between an optimize request and its response — skip stale entries
+        return optimizedRoute
+            .filter(index => selectedLocations[index])
+            .map(index => ({
+                name: selectedLocations[index].name,
+                address: selectedLocations[index].address || '',
+                lat: selectedLocations[index].lat,
+                lng: selectedLocations[index].lng
+            }));
     }, [optimizedRoute, selectedLocations]);
 
     const exportToGoogleMaps = () => {
@@ -513,12 +522,13 @@ export function TripProvider({ children }) {
         const [moved] = newOptimizedCoords.splice(sourceIndex, 1);
         newOptimizedCoords.splice(destinationIndex, 0, moved);
 
-        // Find the original indices that correspond to the new order
+        // Find the original indices that correspond to the new order,
+        // dropping any entries that no longer exist in selectedLocations
         const newOptimizedRoute = newOptimizedCoords.map(coord => {
             return selectedLocations.findIndex(loc =>
                 loc.lat === coord.lat && loc.lng === coord.lng && loc.name === coord.name
             );
-        });
+        }).filter(index => index !== -1);
 
         setOptimizedRoute(newOptimizedRoute);
 
@@ -540,13 +550,15 @@ export function TripProvider({ children }) {
             routePolyline.setMap(null);
         }
 
-        const routeCoordinates = newOptimizedRoute.map(index => ({
-            lat: selectedLocations[index].lat,
-            lng: selectedLocations[index].lng
-        }));
+        const routeCoordinates = newOptimizedRoute
+            .filter(index => selectedLocations[index])
+            .map(index => ({
+                lat: selectedLocations[index].lat,
+                lng: selectedLocations[index].lng
+            }));
 
         // Only complete the cycle if no end_index is specified
-        if (endIndex === null) {
+        if (routeCoordinates.length > 0 && endIndex === null) {
             routeCoordinates.push(routeCoordinates[0]);
         }
 
@@ -604,13 +616,15 @@ export function TripProvider({ children }) {
         if (trip.startIndex !== undefined) setStartIndex(trip.startIndex);
         if (trip.endIndex !== undefined) setEndIndex(trip.endIndex);
 
-        // Re-draw polyline
-        const routeCoordinates = trip.optimizedRoute.map(index => ({
-            lat: newLocations[index].lat,
-            lng: newLocations[index].lng
-        }));
+        // Re-draw polyline (guard against corrupt docs whose route outruns locations)
+        const routeCoordinates = trip.optimizedRoute
+            .filter(index => newLocations[index])
+            .map(index => ({
+                lat: newLocations[index].lat,
+                lng: newLocations[index].lng
+            }));
 
-        if (trip.endIndex === undefined || trip.endIndex === null) {
+        if (routeCoordinates.length > 0 && (trip.endIndex === undefined || trip.endIndex === null)) {
             routeCoordinates.push(routeCoordinates[0]);
         }
 
@@ -652,7 +666,7 @@ export function TripProvider({ children }) {
         setWeatherData(null);
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/weather`, {
+            const response = await fetch(`${getBackendUrl()}/weather`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

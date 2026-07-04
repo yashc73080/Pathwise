@@ -9,6 +9,7 @@ import { addTrip, updateTripName } from '../firebase/firestore';
 import toast from 'react-hot-toast';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import WeatherVisualization from './WeatherVisualization';
+import { getBackendUrl } from '../utils/backendUrl';
 
 export default function Sidebar() {
     const {
@@ -107,7 +108,7 @@ export default function Sidebar() {
             const tripId = await addTrip(currentUser.uid, tripData);
             toast.success('Trip saved successfully!');
 
-            fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/generate-trip-name`, {
+            fetch(`${getBackendUrl()}/generate-trip-name`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ locations: tripData.locations })

@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { addTrip, updateTripName } from '../firebase/firestore';
 import WeatherVisualization from './WeatherVisualization';
 import { useDraggablePanel } from '../hooks/useDraggablePanel';
+import { getBackendUrl } from '../utils/backendUrl';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 export default function RoutePanel() {
@@ -71,7 +72,7 @@ export default function RoutePanel() {
             toast.success('Trip saved successfully!');
 
             // Generate AI name in background (non-blocking)
-            fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/generate-trip-name`, {
+            fetch(`${getBackendUrl()}/generate-trip-name`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ locations: tripData.locations })

@@ -3,6 +3,7 @@ import itertools
 import networkx as nx
 from dotenv import load_dotenv
 import os
+from typing import Callable, Dict, List, Optional, Tuple
 
 # Load environment variables from backend/.env.local
 env_path = os.path.join(os.path.dirname(__file__), '.env.local')
@@ -15,10 +16,18 @@ if not GOOGLE_MAPS_API_KEY:
 
 gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
 
-def get_travel_distance(origin, destination):
+DistanceFn = Callable[[dict, dict], float]
+
+
+def _location_key(location: dict) -> Tuple[float, float]:
+    return (round(float(location["lat"]), 6), round(float(location["lng"]), 6))
+
+
+def get_travel_distance(origin, destination, gmaps_client=None):
     """Get the driving distance between two locations."""
     try:
-        result = gmaps.distance_matrix(
+        client = gmaps_client or gmaps
+        result = client.distance_matrix(
             origins=(f"{origin['lat']},{origin['lng']}"),
             destinations=(f"{destination['lat']},{destination['lng']}"),
             mode="driving"
@@ -34,14 +43,79 @@ def get_travel_distance(origin, destination):
         print(f"Error in get_travel_distance: {str(e)}")
         return float('inf')
 
-def build_graph(locations):
+
+def build_distance_lookup(locations: List[dict], gmaps_client=None) -> Dict[Tuple[int, int], float]:
+    """
+    Build a pairwise driving-distance lookup with batched Distance Matrix calls.
+
+    Google caps Distance Matrix requests at 25 origins, 25 destinations, and
+    100 elements. Using 10x10 chunks stays inside all three limits and replaces
+    the previous N^2/2 one-request-per-pair behavior.
+    """
+    lookup: Dict[Tuple[int, int], float] = {}
+    client = gmaps_client or gmaps
+    chunk_size = 10
+
+    for origin_start in range(0, len(locations), chunk_size):
+        origin_indices = list(range(origin_start, min(origin_start + chunk_size, len(locations))))
+        origins = [f"{locations[i]['lat']},{locations[i]['lng']}" for i in origin_indices]
+
+        for dest_start in range(0, len(locations), chunk_size):
+            dest_indices = list(range(dest_start, min(dest_start + chunk_size, len(locations))))
+            destinations = [f"{locations[i]['lat']},{locations[i]['lng']}" for i in dest_indices]
+
+            try:
+                result = client.distance_matrix(
+                    origins=origins,
+                    destinations=destinations,
+                    mode="driving",
+                )
+            except Exception as e:
+                print(f"Error in batched distance_matrix: {str(e)}")
+                for i in origin_indices:
+                    for j in dest_indices:
+                        lookup[(i, j)] = float("inf")
+                continue
+
+            rows = result.get("rows", [])
+            for row_offset, row in enumerate(rows):
+                i = origin_indices[row_offset]
+                for col_offset, element in enumerate(row.get("elements", [])):
+                    j = dest_indices[col_offset]
+                    if i == j:
+                        lookup[(i, j)] = 0
+                    elif element.get("status") == "OK":
+                        lookup[(i, j)] = element.get("distance", {}).get("value", float("inf")) * 0.000621371
+                    else:
+                        lookup[(i, j)] = float("inf")
+
+    return lookup
+
+
+def make_cached_distance_fn(locations: List[dict], gmaps_client=None) -> DistanceFn:
+    lookup = build_distance_lookup(locations, gmaps_client=gmaps_client)
+    index_by_key = {_location_key(location): index for index, location in enumerate(locations)}
+    pair_cache: Dict[Tuple[int, int], float] = {}
+
+    def distance(origin: dict, destination: dict) -> float:
+        i = index_by_key[_location_key(origin)]
+        j = index_by_key[_location_key(destination)]
+        key = tuple(sorted((i, j)))
+        if key not in pair_cache:
+            pair_cache[key] = lookup.get((i, j), lookup.get((j, i), float("inf")))
+        return pair_cache[key]
+
+    return distance
+
+
+def build_graph(locations, distance_fn: Optional[DistanceFn] = None):
     """Build a complete graph with distances between all location pairs."""
     G = nx.Graph()
+    distance = distance_fn or make_cached_distance_fn(locations)
     
     for i in range(len(locations)):
         for j in range(i + 1, len(locations)):
-            distance = get_travel_distance(locations[i], locations[j])
-            G.add_edge(i, j, weight=distance)
+            G.add_edge(i, j, weight=distance(locations[i], locations[j]))
     
     return G
 
@@ -55,7 +129,7 @@ def find_minimum_weight_perfect_matching(G, odd_degree_vertices):
     matching = nx.min_weight_matching(H)
     return matching
 
-def tsp(locations, start_index=0, end_index=None):
+def tsp(locations, start_index=0, end_index=None, distance_fn: Optional[DistanceFn] = None, gmaps_client=None):
     """
     Implementation of Christofides algorithm for TSP.
     
@@ -84,7 +158,7 @@ def tsp(locations, start_index=0, end_index=None):
             end_index = None
     
     # Build the complete graph
-    G = build_graph(locations)
+    G = build_graph(locations, distance_fn=distance_fn or make_cached_distance_fn(locations, gmaps_client=gmaps_client))
     
     # For path TSP (start to end), use a simpler greedy nearest neighbor approach
     # that respects the start and end constraints
@@ -142,6 +216,13 @@ def tsp(locations, start_index=0, end_index=None):
     # Convert indices back to locations
     optimized_route = [locations[i] for i in hamiltonian_path]
     return optimized_route
+
+
+def route_total_distance(route, distance_fn: Optional[DistanceFn] = None, gmaps_client=None):
+    if len(route) < 2:
+        return 0
+    distance = distance_fn or make_cached_distance_fn(route, gmaps_client=gmaps_client)
+    return sum(distance(route[i], route[i + 1]) for i in range(len(route) - 1))
 
 
 def _tsp_with_endpoints(locations, G, start_index, end_index):

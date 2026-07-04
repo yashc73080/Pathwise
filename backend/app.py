@@ -3,14 +3,17 @@ from flask_cors import CORS
 import googlemaps
 from dotenv import load_dotenv
 import os
-from christofides import tsp
+from christofides import route_total_distance, tsp
 from agent import get_chat_response
 from trip_naming import generate_trip_name
 from weather import get_weather_for_locations
 import json
 import firebase_admin
-from firebase_admin import credentials, firestore, auth
+from firebase_admin import credentials, firestore, auth as firebase_auth
 from session_service import FirestoreSessionService, InMemorySessionService
+from routes.trips import create_trips_blueprint
+from services.trip_repository import FirestoreTripRepository, InMemoryTripRepository
+from services.trip_service import TripService
 import re
 
 # Load environment variables from backend/.env.local
@@ -38,12 +41,15 @@ try:
         firebase_admin.initialize_app(cred)
     db = firestore.client()
     session_service = FirestoreSessionService(db)
+    trip_repository = FirestoreTripRepository(db)
     print("INFO: FirestoreSessionService initialized successfully")
 except Exception as e:
     print(f"Warning: Firebase Admin init failed: {e}. Using InMemorySessionService.")
     db = None
     session_service = InMemorySessionService()
+    trip_repository = InMemoryTripRepository()
 
+trip_service = TripService(trip_repository, gmaps_client=gmaps)
 
 
 app = Flask(__name__)
@@ -58,6 +64,8 @@ CORS(app, resources={r"/*": {"origins": [
     "https://localhost",
     "https://pathwise.web.app",
 ]}})
+
+app.register_blueprint(create_trips_blueprint(trip_service))
 
 @app.route('/')
 def home():
@@ -200,10 +208,7 @@ def optimize_route():
     optimized_route = tsp(locations, start_index, end_index)
     
     # Calculate total distance and estimated time
-    total_distance = sum(
-        get_travel_distance(optimized_route[i], optimized_route[i+1]) 
-        for i in range(len(optimized_route) - 1)
-    )
+    total_distance = route_total_distance(optimized_route, gmaps_client=gmaps)
     
     # Rough estimate: 50 miles per hour average
     total_time = f"{total_distance / 50:.1f} hours"
@@ -288,7 +293,7 @@ def chat():
         if auth_header and auth_header.startswith("Bearer "):
             try:
                 token = auth_header.split("Bearer ")[1]
-                decoded_token = auth.verify_id_token(token)
+                decoded_token = firebase_auth.verify_id_token(token)
                 user_id = decoded_token['uid']
                 print(f"DEBUG: User authenticated: {user_id}")
             except Exception as auth_error:
@@ -342,7 +347,7 @@ def get_chat_sessions():
     
     try:
         token = auth_header.split("Bearer ")[1]
-        decoded_token = auth.verify_id_token(token)
+        decoded_token = firebase_auth.verify_id_token(token)
         user_id = decoded_token['uid']
         
         sessions = session_service.list_sessions(user_id)
@@ -358,7 +363,7 @@ def get_chat_messages(chat_id):
         
     try:
         token = auth_header.split("Bearer ")[1]
-        decoded_token = auth.verify_id_token(token)
+        decoded_token = firebase_auth.verify_id_token(token)
         user_id = decoded_token['uid']
         
         messages = session_service.get_messages(user_id, chat_id)

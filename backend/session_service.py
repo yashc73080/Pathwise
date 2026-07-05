@@ -8,6 +8,18 @@ import re
 from firebase_admin import firestore
 
 
+# One-shot action markers (ADD_LOCATIONS / OPTIMIZE_ROUTE) are stripped before
+# persisting so reloading a session never replays them against whatever trip is
+# loaded. PLACES_DATA is kept so place cards render on reload.
+_ACTION_MARKER_RE = re.compile(
+    r'<!--(?:ADD_LOCATIONS|OPTIMIZE_ROUTE):[\s\S]*?(?::(?:ADD_LOCATIONS|OPTIMIZE_ROUTE)-->|$)'
+)
+
+
+def strip_action_markers(content: str) -> str:
+    return _ACTION_MARKER_RE.sub('', content).strip()
+
+
 class SessionService(ABC):
     """Abstract base class for session management."""
     
@@ -87,7 +99,10 @@ class InMemorySessionService(SessionService):
         user_sessions = self._get_user_sessions(user_id)
         if session_id not in user_sessions:
             self.create_session(user_id, session_id)
-        
+
+        if role == 'assistant':
+            content = strip_action_markers(content)
+
         user_sessions[session_id]['messages'].append({
             'role': role,
             'content': content,
@@ -156,7 +171,10 @@ class FirestoreSessionService(SessionService):
         session_ref = self._get_session_ref(user_id, session_id)
         if not session_ref.get().exists:
             self.create_session(user_id, session_id)
-        
+
+        if role == 'assistant':
+            content = strip_action_markers(content)
+
         # Add the message
         messages_ref = self._get_messages_ref(user_id, session_id)
         messages_ref.add({

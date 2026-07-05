@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/authContext';
 import { useTrip } from '../context/TripContext';
-import { getUserTrips, deleteTrip } from '../firebase/firestore';
+import { getUserTrips, deleteTrip, setTripVisibility } from '../firebase/firestore';
 import { doSignOut } from '../firebase/auth';
 import toast from 'react-hot-toast';
+import { getOrderedStops } from '../utils/tripModel';
+import { copyToClipboard, getShareUrl } from '../utils/share';
 
 export default function SavedTripsModal() {
     const { currentUser, isSavedTripsModalOpen, closeSavedTripsModal } = useAuth();
@@ -18,7 +20,7 @@ export default function SavedTripsModal() {
         if (!currentUser) return;
         setLoading(true);
         try {
-            const userTrips = await getUserTrips(currentUser.uid);
+            const userTrips = await getUserTrips(currentUser);
             setTrips(userTrips);
         } catch (error) {
             toast.error('Failed to fetch saved trips');
@@ -43,11 +45,27 @@ export default function SavedTripsModal() {
         // if (!window.confirm('Are you sure you want to delete this trip?')) return;
 
         try {
-            await deleteTrip(tripId);
+            await deleteTrip(currentUser, tripId);
             toast.success('Trip deleted');
             fetchTrips(); // Refresh list
         } catch (error) {
             toast.error('Failed to delete trip');
+        }
+    };
+
+    const handleShare = async (trip, e) => {
+        e.stopPropagation();
+        try {
+            if (trip.visibility !== 'link') {
+                await setTripVisibility(currentUser, trip.id, 'link');
+                setTrips(prev => prev.map(existing =>
+                    existing.id === trip.id ? { ...existing, visibility: 'link' } : existing
+                ));
+            }
+            await copyToClipboard(getShareUrl(trip.id));
+            toast.success('Share link copied!');
+        } catch (error) {
+            toast.error('Failed to create share link');
         }
     };
 
@@ -56,12 +74,13 @@ export default function SavedTripsModal() {
 
         // Construct Google Maps URL based on trip data
         // Similar to TripContext exportToGoogleMaps
-        if (!trip.optimizedRoute || !trip.locations) return;
+        const day = trip.days?.find(candidate => candidate.route?.order?.length) || trip.days?.[0];
+        if (!day || day.stops.length < 2) return;
 
-        const optimizedCoords = trip.optimizedRoute.map(index => trip.locations[index]);
+        const optimizedCoords = getOrderedStops(day);
         const baseUrl = "https://www.google.com/maps/dir/";
         const waypoints = optimizedCoords
-            .map(loc => `${loc.lat},${loc.lng}`)
+            .map(loc => loc.address ? encodeURIComponent(`${loc.name}, ${loc.address}`) : `${loc.lat},${loc.lng}`)
             .join('/');
 
         const googleMapsUrl = `${baseUrl}${waypoints}`;
@@ -129,7 +148,7 @@ export default function SavedTripsModal() {
                                 >
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
-                                            <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{trip.name || `Trip ${trips.length - index}`}</h3>
+                                            <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{trip.title || trip.name || `Trip ${trips.length - index}`}</h3>
                                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                                 {trip.createdAt?.seconds
                                                     ? `${new Date(trip.createdAt.seconds * 1000).toLocaleDateString()} at ${new Date(trip.createdAt.seconds * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
@@ -137,6 +156,15 @@ export default function SavedTripsModal() {
                                             </p>
                                         </div>
                                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={(e) => handleShare(trip, e)}
+                                                className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                                title="Copy share link"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                                </svg>
+                                            </button>
                                             <button
                                                 onClick={(e) => handleExport(trip, e)}
                                                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -162,17 +190,49 @@ export default function SavedTripsModal() {
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-wrap gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                        {trip.optimizedRoute.map((locIndex, i) => (
-                                            <span key={i} className="flex items-center">
-                                                {trip.locations[locIndex].name}
-                                                {i < trip.optimizedRoute.length - 1 && (
-                                                    <svg className="w-4 h-4 mx-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                )}
-                                            </span>
-                                        ))}
+                                    <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                        {(() => {
+                                            const days = (trip.days || []).filter(day => day.stops?.length);
+                                            const maxDaysShown = 3;
+                                            const maxStopsPerDay = 3;
+                                            const shownDays = days.slice(0, maxDaysShown);
+                                            const extraDays = days.length - shownDays.length;
+
+                                            return (
+                                                <>
+                                                    {shownDays.map((day, dayIdx) => {
+                                                        const stops = getOrderedStops(day);
+                                                        const shownStops = stops.slice(0, maxStopsPerDay);
+                                                        const extraStops = stops.length - shownStops.length;
+                                                        return (
+                                                            <div key={day.id || dayIdx} className="flex flex-wrap items-center gap-1">
+                                                                {days.length > 1 && (
+                                                                    <span className="font-medium text-gray-500 dark:text-gray-400 mr-1">
+                                                                        Day {dayIdx + 1}:
+                                                                    </span>
+                                                                )}
+                                                                {shownStops.map((loc, i) => (
+                                                                    <span key={loc.id || i} className="flex items-center">
+                                                                        {loc.name}
+                                                                        {i < shownStops.length - 1 && (
+                                                                            <svg className="w-4 h-4 mx-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                                            </svg>
+                                                                        )}
+                                                                    </span>
+                                                                ))}
+                                                                {extraStops > 0 && (
+                                                                    <span className="text-gray-400">+{extraStops} more</span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {extraDays > 0 && (
+                                                        <div className="text-gray-400">+{extraDays} more day{extraDays > 1 ? 's' : ''}</div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             ))}

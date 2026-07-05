@@ -3,19 +3,23 @@
 import { useTrip } from '../context/TripContext';
 import { useAuth } from '../context/authContext';
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import { addTrip, updateTripName } from '../firebase/firestore';
 import WeatherVisualization from './WeatherVisualization';
+import ShareTripButton from './ShareTripButton';
 import { useDraggablePanel } from '../hooks/useDraggablePanel';
+import { getBackendUrl } from '../utils/backendUrl';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { getDayColor } from '../utils/dayColors';
 
 export default function RoutePanel() {
-    const { optimizedRoute, selectedLocations, optimizedCoords, exportToGoogleMaps, reorderOptimizedRoute, startIndex, endIndex, activePanel, setActivePanel, routeHeight, setRouteHeight, currentChatSessionId } = useTrip();
+    const { trip, activeDayId, setActiveDayId, optimizedRoute, selectedLocations, optimizedCoords, exportToGoogleMaps, reorderOptimizedRoute, activePanel, setActivePanel, routeHeight, setRouteHeight, serializeCurrentTrip, markTripSaved } = useTrip();
     const { userLoggedIn, currentUser, openLoginModal } = useAuth();
 
     const [isSaving, setIsSaving] = useState(false);
     const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+    const activeDayIndex = Math.max(0, trip.days.findIndex(day => day.id === activeDayId));
+    const activeDayColor = getDayColor(activeDayIndex);
 
     // Draggable panel hook for mobile resizing
     const { panelRef, handleDragStart } = useDraggablePanel({
@@ -29,18 +33,9 @@ export default function RoutePanel() {
         }
     });
 
-    // Logging
     useEffect(() => {
-        if (optimizedRoute) {
-            console.log('Selected Locations:', selectedLocations);
-            console.log('Optimized Route in RoutePanel:', optimizedRoute);
-            console.log('Optimized Coordinates in RoutePanel:', optimizedCoords);
-        }
-        if (optimizedRoute) {
-            console.log('Selected Locations:', selectedLocations);
-            console.log('Optimized Route in RoutePanel:', optimizedRoute);
-            console.log('Optimized Coordinates in RoutePanel:', optimizedCoords);
-            if (!currentUser) setShowSignInPrompt(true);
+        if (optimizedRoute && !currentUser) {
+            setShowSignInPrompt(true);
         }
     }, [optimizedRoute, currentUser]);
 
@@ -54,32 +49,25 @@ export default function RoutePanel() {
         try {
             // Prepare trip data with null name (AI will generate it in background)
             const tripData = {
-                name: null,
-                locations: selectedLocations.map(loc => ({
-                    name: loc.name,
-                    lat: loc.lat,
-                    lng: loc.lng,
-                    address: loc.address || ''
-                })),
-                optimizedRoute,
-                startIndex,
-                endIndex,
-                chatSessionId: currentChatSessionId || null
+                ...serializeCurrentTrip(),
+                title: null
             };
 
-            const tripId = await addTrip(currentUser.uid, tripData);
+            const tripId = await addTrip(currentUser, tripData);
+            markTripSaved(tripId);
             toast.success('Trip saved successfully!');
 
-            // Generate AI name in background (non-blocking)
-            fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/generate-trip-name`, {
+            // Generate AI name in background (non-blocking), using stops from every day
+            const allStops = trip.days.flatMap(day => day.stops);
+            fetch(`${getBackendUrl()}/generate-trip-name`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ locations: tripData.locations })
+                body: JSON.stringify({ locations: allStops })
             })
                 .then(res => res.json())
                 .then(data => {
                     if (data.name && data.name !== 'My Trip') {
-                        updateTripName(tripId, data.name);
+                        updateTripName(currentUser, tripId, data.name);
                     }
                 })
                 .catch(err => console.error('Background name generation failed:', err));
@@ -139,7 +127,10 @@ export default function RoutePanel() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                     </svg>
                 </div>
-                <span className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm">
+                <span
+                    className="w-7 h-7 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm"
+                    style={{ backgroundColor: activeDayColor.bg, border: `2px solid ${activeDayColor.border}` }}
+                >
                     {index + 1}
                 </span>
                 <span className="text-gray-700 dark:text-gray-200 flex-1 truncate">{location.name}</span>
@@ -218,6 +209,7 @@ export default function RoutePanel() {
                         )}
                         {optimizedRoute && (
                             <>
+                                <ShareTripButton variant="icon" />
                                 <button
                                     onClick={handleSaveTrip}
                                     disabled={isSaving}
@@ -262,6 +254,11 @@ export default function RoutePanel() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4">
+                    <RouteDayTabs
+                        days={trip.days}
+                        activeDayId={activeDayId}
+                        setActiveDayId={setActiveDayId}
+                    />
                     {optimizedRoute ? <RouteList /> : <EmptyState />}
 
                     {/* Weather Visualization */}
@@ -270,5 +267,29 @@ export default function RoutePanel() {
             </div>
             {/* Desktop RoutePanel removed - now integrated into Sidebar tabs */}
         </>
+    );
+}
+
+function RouteDayTabs({ days, activeDayId, setActiveDayId }) {
+    return (
+        <div className="pb-3 mb-3 flex gap-2 overflow-x-auto border-b border-gray-100 dark:border-gray-800">
+            {days.map((day, index) => {
+                const dayColor = getDayColor(index);
+                return (
+                    <button
+                        key={day.id}
+                        onClick={() => setActiveDayId(day.id)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md whitespace-nowrap transition-colors flex items-center gap-1.5 ${activeDayId === day.id
+                            ? 'text-white'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                            }`}
+                        style={activeDayId === day.id ? { backgroundColor: dayColor.bg } : undefined}
+                    >
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: activeDayId === day.id ? dayColor.text : dayColor.bg }} />
+                        {day.label || 'Day'}
+                    </button>
+                );
+            })}
+        </div>
     );
 }

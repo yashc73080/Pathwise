@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
+  // Static export emits trip/index.html (not trip.html) so Firebase Hosting
+  // can serve /trip/?id=... without cleanUrls rewrites.
+  trailingSlash: true,
   images: {
     unoptimized: true
   },

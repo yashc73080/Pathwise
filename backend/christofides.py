@@ -3,6 +3,7 @@ import itertools
 import networkx as nx
 from dotenv import load_dotenv
 import os
+from typing import Callable, Dict, List, Optional, Tuple
 
 # Load environment variables from backend/.env.local
 env_path = os.path.join(os.path.dirname(__file__), '.env.local')
@@ -15,10 +16,18 @@ if not GOOGLE_MAPS_API_KEY:
 
 gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
 
-def get_travel_distance(origin, destination):
+DistanceFn = Callable[[dict, dict], float]
+
+
+def _location_key(location: dict) -> Tuple[float, float]:
+    return (round(float(location["lat"]), 6), round(float(location["lng"]), 6))
+
+
+def get_travel_distance(origin, destination, gmaps_client=None):
     """Get the driving distance between two locations."""
     try:
-        result = gmaps.distance_matrix(
+        client = gmaps_client or gmaps
+        result = client.distance_matrix(
             origins=(f"{origin['lat']},{origin['lng']}"),
             destinations=(f"{destination['lat']},{destination['lng']}"),
             mode="driving"
@@ -34,14 +43,79 @@ def get_travel_distance(origin, destination):
         print(f"Error in get_travel_distance: {str(e)}")
         return float('inf')
 
-def build_graph(locations):
+
+def build_distance_lookup(locations: List[dict], gmaps_client=None) -> Dict[Tuple[int, int], float]:
+    """
+    Build a pairwise driving-distance lookup with batched Distance Matrix calls.
+
+    Google caps Distance Matrix requests at 25 origins, 25 destinations, and
+    100 elements. Using 10x10 chunks stays inside all three limits and replaces
+    the previous N^2/2 one-request-per-pair behavior.
+    """
+    lookup: Dict[Tuple[int, int], float] = {}
+    client = gmaps_client or gmaps
+    chunk_size = 10
+
+    for origin_start in range(0, len(locations), chunk_size):
+        origin_indices = list(range(origin_start, min(origin_start + chunk_size, len(locations))))
+        origins = [f"{locations[i]['lat']},{locations[i]['lng']}" for i in origin_indices]
+
+        for dest_start in range(0, len(locations), chunk_size):
+            dest_indices = list(range(dest_start, min(dest_start + chunk_size, len(locations))))
+            destinations = [f"{locations[i]['lat']},{locations[i]['lng']}" for i in dest_indices]
+
+            try:
+                result = client.distance_matrix(
+                    origins=origins,
+                    destinations=destinations,
+                    mode="driving",
+                )
+            except Exception as e:
+                print(f"Error in batched distance_matrix: {str(e)}")
+                for i in origin_indices:
+                    for j in dest_indices:
+                        lookup[(i, j)] = float("inf")
+                continue
+
+            rows = result.get("rows", [])
+            for row_offset, row in enumerate(rows):
+                i = origin_indices[row_offset]
+                for col_offset, element in enumerate(row.get("elements", [])):
+                    j = dest_indices[col_offset]
+                    if i == j:
+                        lookup[(i, j)] = 0
+                    elif element.get("status") == "OK":
+                        lookup[(i, j)] = element.get("distance", {}).get("value", float("inf")) * 0.000621371
+                    else:
+                        lookup[(i, j)] = float("inf")
+
+    return lookup
+
+
+def make_cached_distance_fn(locations: List[dict], gmaps_client=None) -> DistanceFn:
+    lookup = build_distance_lookup(locations, gmaps_client=gmaps_client)
+    index_by_key = {_location_key(location): index for index, location in enumerate(locations)}
+    pair_cache: Dict[Tuple[int, int], float] = {}
+
+    def distance(origin: dict, destination: dict) -> float:
+        i = index_by_key[_location_key(origin)]
+        j = index_by_key[_location_key(destination)]
+        key = tuple(sorted((i, j)))
+        if key not in pair_cache:
+            pair_cache[key] = lookup.get((i, j), lookup.get((j, i), float("inf")))
+        return pair_cache[key]
+
+    return distance
+
+
+def build_graph(locations, distance_fn: Optional[DistanceFn] = None):
     """Build a complete graph with distances between all location pairs."""
     G = nx.Graph()
+    distance = distance_fn or make_cached_distance_fn(locations)
     
     for i in range(len(locations)):
         for j in range(i + 1, len(locations)):
-            distance = get_travel_distance(locations[i], locations[j])
-            G.add_edge(i, j, weight=distance)
+            G.add_edge(i, j, weight=distance(locations[i], locations[j]))
     
     return G
 
@@ -55,7 +129,7 @@ def find_minimum_weight_perfect_matching(G, odd_degree_vertices):
     matching = nx.min_weight_matching(H)
     return matching
 
-def tsp(locations, start_index=0, end_index=None):
+def tsp(locations, start_index=0, end_index=None, distance_fn: Optional[DistanceFn] = None, gmaps_client=None):
     """
     Implementation of Christofides algorithm for TSP.
     
@@ -70,19 +144,28 @@ def tsp(locations, start_index=0, end_index=None):
     if len(locations) < 2:
         return locations
     
+    if len(locations) == 2:
+        return locations if start_index == 0 else [locations[1], locations[0]]
+    
     # Validate indices
     if start_index < 0 or start_index >= len(locations):
         start_index = 0
     if end_index is not None:
         if end_index < 0 or end_index >= len(locations):
             end_index = None
-        elif end_index == start_index and len(locations) > 2:
-            # If start and end are the same with more than 2 locations, treat as cycle
+        elif end_index == start_index:
+            # If start and end are the same, treat as cycle
             end_index = None
     
     # Build the complete graph
-    G = build_graph(locations)
+    G = build_graph(locations, distance_fn=distance_fn or make_cached_distance_fn(locations, gmaps_client=gmaps_client))
     
+    # For path TSP (start to end), use a simpler greedy nearest neighbor approach
+    # that respects the start and end constraints
+    if end_index is not None and end_index != start_index:
+        return _tsp_with_endpoints(locations, G, start_index, end_index)
+    
+    # Standard Christofides for cycle TSP
     # Find minimum spanning tree
     T = nx.minimum_spanning_tree(G, weight='weight')
     
@@ -99,69 +182,84 @@ def tsp(locations, start_index=0, end_index=None):
     else:
         H = nx.MultiGraph(T)
     
-    # Find Eulerian circuit/path
+    # Find Eulerian circuit
     try:
-        if end_index is not None and end_index != start_index:
-            # Try to find Eulerian path from start to end
-            try:
-                euler_path = list(nx.eulerian_path(H, source=start_index))
-            except:
-                euler_path = list(nx.edge_dfs(H, source=start_index))
-            euler_edges = euler_path
-        else:
-            # Find Eulerian circuit for cycle
-            try:
-                euler_circuit = list(nx.eulerian_circuit(H, source=start_index))
-                euler_edges = euler_circuit
-            except nx.NetworkXError:
-                euler_edges = list(nx.edge_dfs(H, source=start_index))
-    except:
-        euler_edges = list(nx.edge_dfs(H, source=start_index))
+        euler_circuit = list(nx.eulerian_circuit(H, source=start_index))
+    except nx.NetworkXError:
+        euler_circuit = list(nx.edge_dfs(H, source=start_index))
     
-    # Convert Eulerian path/circuit to Hamiltonian path
+    # Convert Eulerian circuit to Hamiltonian path
     visited = set()
     hamiltonian_path = []
     
-    for u, v in euler_edges:
+    for u, v in euler_circuit:
         if u not in visited:
             hamiltonian_path.append(u)
             visited.add(u)
     
-    # Add the last vertex if it's not already included
-    if euler_edges:
-        last_v = euler_edges[-1][1]
+    # Add the last vertex if not included
+    if euler_circuit:
+        last_v = euler_circuit[-1][1]
         if last_v not in visited:
             hamiltonian_path.append(last_v)
     
-    # Ensure we start with start_index
+    # Ensure we start with start_index (rotate the cycle)
     if hamiltonian_path and hamiltonian_path[0] != start_index:
         if start_index in hamiltonian_path:
             start_pos = hamiltonian_path.index(start_index)
             hamiltonian_path = hamiltonian_path[start_pos:] + hamiltonian_path[:start_pos]
     
-    # Handle end_index for path TSP
-    if end_index is not None and end_index != start_index and end_index in hamiltonian_path:
-        # Remove end_index from its current position
-        end_pos = hamiltonian_path.index(end_index)
-        hamiltonian_path.remove(end_index)
-        # Add it at the end
-        hamiltonian_path.append(end_index)
-        # If we removed it from the start, rotate
-        if hamiltonian_path[0] != start_index and start_index in hamiltonian_path:
-            start_pos = hamiltonian_path.index(start_index)
-            hamiltonian_path = hamiltonian_path[start_pos:] + hamiltonian_path[:start_pos]
-            # Re-add end_index at the end
-            if end_index in hamiltonian_path:
-                hamiltonian_path.remove(end_index)
-            hamiltonian_path.append(end_index)
-    elif end_index is None or end_index == start_index:
-        # Complete the cycle if no end_index specified
-        if hamiltonian_path and hamiltonian_path[-1] != start_index:
-            hamiltonian_path.append(start_index)
+    # Complete the cycle
+    if hamiltonian_path and hamiltonian_path[-1] != start_index:
+        hamiltonian_path.append(start_index)
     
     # Convert indices back to locations
     optimized_route = [locations[i] for i in hamiltonian_path]
     return optimized_route
+
+
+def route_total_distance(route, distance_fn: Optional[DistanceFn] = None, gmaps_client=None):
+    if len(route) < 2:
+        return 0
+    distance = distance_fn or make_cached_distance_fn(route, gmaps_client=gmaps_client)
+    return sum(distance(route[i], route[i + 1]) for i in range(len(route) - 1))
+
+
+def _tsp_with_endpoints(locations, G, start_index, end_index):
+    """
+    Solve TSP with fixed start and end points using nearest neighbor heuristic.
+    This ensures the path goes from start to end without zigzagging back.
+    """
+    n = len(locations)
+    unvisited = set(range(n))
+    unvisited.remove(start_index)
+    unvisited.remove(end_index)
+    
+    path = [start_index]
+    current = start_index
+    
+    # Greedy nearest neighbor, but always keeping end_index for last
+    while unvisited:
+        # Find nearest unvisited node
+        nearest = None
+        nearest_dist = float('inf')
+        
+        for node in unvisited:
+            dist = G[current][node]['weight']
+            if dist < nearest_dist:
+                nearest_dist = dist
+                nearest = node
+        
+        if nearest is not None:
+            path.append(nearest)
+            unvisited.remove(nearest)
+            current = nearest
+    
+    # Add end point last
+    path.append(end_index)
+    
+    # Convert indices back to locations
+    return [locations[i] for i in path]
 
 if __name__ == '__main__':
     # Example usage

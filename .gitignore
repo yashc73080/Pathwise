@@ -45,3 +45,13 @@ frontend/.next/
 .vscode/*
 backend/*.json
 frontend/out/*
+
+frontend/android/app/google-services.json
+
+.claude
+CLAUDE.md
+AGENTS.md
+
+__pycache__
+
+graphify-out

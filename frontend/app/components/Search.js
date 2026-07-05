@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useTrip } from '../context/TripContext';
+import { createPreviewMarker, createLocationDot, clearMarker } from '../utils/markers';
 
 export default function Search() {
     const {
         mapLoaded,
         map,
-        setSearchBox,
         setCurrentPlace,
         setCurrentMarker,
         currentMarker,
@@ -18,6 +18,12 @@ export default function Search() {
 
     const inputRef = useRef(null);
     const [isLocating, setIsLocating] = useState(false);
+    const [suggestions, setSuggestions] = useState([]);
+    const [activeIndex, setActiveIndex] = useState(-1);
+    const placesLibRef = useRef(null);
+    const sessionTokenRef = useRef(null);
+    const debounceRef = useRef(null);
+    const requestIdRef = useRef(0);
 
     const handleCurrentLocation = () => {
         if (!navigator.geolocation) {
@@ -38,18 +44,10 @@ export default function Search() {
                     map.setCenter(pos);
                     map.setZoom(15);
 
-                    new window.google.maps.Marker({
-                        position: pos,
+                    createLocationDot({
                         map: map,
+                        position: pos,
                         title: "Your Location",
-                        icon: {
-                            path: window.google.maps.SymbolPath.CIRCLE,
-                            scale: 8,
-                            fillColor: '#4285F4',
-                            fillOpacity: 1,
-                            strokeColor: 'white',
-                            strokeWeight: 2,
-                        },
                     });
                 }
                 setIsLocating(false);
@@ -77,60 +75,139 @@ export default function Search() {
     };
 
     useEffect(() => {
-        if (!mapLoaded || !inputRef.current) return;
+        if (!mapLoaded) return;
+        let cancelled = false;
+        window.google.maps.importLibrary('places').then((placesLib) => {
+            if (!cancelled) placesLibRef.current = placesLib;
+        });
+        return () => {
+            cancelled = true;
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [mapLoaded]);
 
-        const input = inputRef.current;
+    const fetchSuggestions = async (input) => {
+        const placesLib = placesLibRef.current;
+        if (!placesLib) return;
 
-        const newSearchBox = new window.google.maps.places.SearchBox(input);
-        setSearchBox(newSearchBox);
+        if (!sessionTokenRef.current) {
+            sessionTokenRef.current = new placesLib.AutocompleteSessionToken();
+        }
 
-        const listener = newSearchBox.addListener('places_changed', () => {
-            const places = newSearchBox.getPlaces();
-            if (places.length === 0) return;
+        const request = {
+            input,
+            sessionToken: sessionTokenRef.current,
+        };
+        const bounds = map?.getBounds();
+        if (bounds) {
+            request.locationBias = bounds;
+        }
 
-            const place = places[0];
-            if (!place.geometry || !place.geometry.location) {
-                console.log('Returned place contains no geometry');
+        const requestId = ++requestIdRef.current;
+        try {
+            const { suggestions: results } =
+                await placesLib.AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+            if (requestId !== requestIdRef.current) return; // stale response
+            setSuggestions(results.filter((s) => s.placePrediction));
+            setActiveIndex(-1);
+        } catch (error) {
+            console.error('Autocomplete request failed:', error);
+            if (requestId === requestIdRef.current) setSuggestions([]);
+        }
+    };
+
+    const handleInputChange = (e) => {
+        const value = e.target.value;
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        if (!value.trim()) {
+            requestIdRef.current++;
+            setSuggestions([]);
+            setActiveIndex(-1);
+            return;
+        }
+        debounceRef.current = setTimeout(() => fetchSuggestions(value), 250);
+    };
+
+    const handleSelectSuggestion = async (suggestion) => {
+        setSuggestions([]);
+        setActiveIndex(-1);
+        // A details fetch ends the autocomplete billing session
+        sessionTokenRef.current = null;
+
+        try {
+            const place = suggestion.placePrediction.toPlace();
+            await place.fetchFields({
+                fields: ['displayName', 'formattedAddress', 'location', 'viewport', 'id'],
+            });
+
+            if (!place.location) {
+                console.log('Returned place contains no location');
                 return;
             }
 
             const placeData = {
-                name: place.name,
-                address: place.formatted_address,
-                lat: place.geometry.location.lat(),
-                lng: place.geometry.location.lng(),
-                placeId: place.place_id
+                name: place.displayName,
+                address: place.formattedAddress,
+                lat: place.location.lat(),
+                lng: place.location.lng(),
+                placeId: place.id
             };
+
+            if (inputRef.current) {
+                inputRef.current.value = placeData.name;
+            }
 
             setCurrentPlace(placeData);
 
-            if (currentMarker) {
-                currentMarker.setMap(null);
-            }
+            clearMarker(currentMarker);
 
             if (map) {
-                const newMarker = new window.google.maps.Marker({
+                const newMarker = createPreviewMarker({
                     map: map,
-                    position: place.geometry.location,
-                    title: place.name,
-                    animation: window.google.maps.Animation.DROP,
+                    position: place.location,
+                    title: placeData.name,
                 });
 
                 setCurrentMarker(newMarker);
 
-                if (place.geometry.viewport) {
-                    map.fitBounds(place.geometry.viewport);
+                if (place.viewport) {
+                    map.fitBounds(place.viewport);
                 } else {
-                    map.setCenter(place.geometry.location);
+                    map.setCenter(place.location);
                     map.setZoom(17);
                 }
             }
-        });
+        } catch (error) {
+            console.error('Failed to fetch place details:', error);
+            toast.error('Could not load place details');
+        }
+    };
 
-        return () => {
-            window.google.maps.event.clearInstanceListeners(newSearchBox);
-        };
-    }, [mapLoaded, map, setCurrentPlace, setCurrentMarker, setSearchBox, currentMarker]);
+    const handleKeyDown = (e) => {
+        if (suggestions.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActiveIndex((i) => (i + 1) % suggestions.length);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSelectSuggestion(suggestions[activeIndex >= 0 ? activeIndex : 0]);
+        } else if (e.key === 'Escape') {
+            setSuggestions([]);
+            setActiveIndex(-1);
+        }
+    };
+
+    const handleInputBlur = () => {
+        // Delay so a click on a suggestion registers before the dropdown closes
+        setTimeout(() => {
+            setSuggestions([]);
+            setActiveIndex(-1);
+        }, 150);
+    };
 
     useEffect(() => {
         if (currentPlace === null && inputRef.current) {
@@ -142,7 +219,7 @@ export default function Search() {
         e.stopPropagation();
         setCurrentPlace(null);
         if (currentMarker) {
-            currentMarker.setMap(null);
+            clearMarker(currentMarker);
             setCurrentMarker(null);
         }
     };
@@ -182,6 +259,14 @@ export default function Search() {
                         type="text"
                         placeholder="Search or click on the map"
                         aria-label="Search for a location"
+                        autoComplete="off"
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
+                        onBlur={handleInputBlur}
+                        role="combobox"
+                        aria-controls="search-suggestions"
+                        aria-expanded={suggestions.length > 0}
+                        aria-autocomplete="list"
                     />
                 </div>
 
@@ -219,6 +304,42 @@ export default function Search() {
                     </svg>
                 </button>
             </div>
+
+            {/* Autocomplete suggestions dropdown */}
+            {suggestions.length > 0 && (
+                <ul
+                    id="search-suggestions"
+                    role="listbox"
+                    className="mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden divide-y divide-gray-100 dark:divide-gray-700"
+                >
+                    {suggestions.map((suggestion, index) => {
+                        const prediction = suggestion.placePrediction;
+                        const mainText = prediction.mainText?.text ?? prediction.text.text;
+                        const secondaryText = prediction.secondaryText?.text;
+                        return (
+                            <li
+                                key={prediction.placeId}
+                                role="option"
+                                aria-selected={index === activeIndex}
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleSelectSuggestion(suggestion);
+                                }}
+                                onMouseEnter={() => setActiveIndex(index)}
+                                className={`px-4 py-2.5 cursor-pointer transition-colors ${index === activeIndex
+                                    ? 'bg-blue-50 dark:bg-blue-900/30'
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    }`}
+                            >
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{mainText}</p>
+                                {secondaryText && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{secondaryText}</p>
+                                )}
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
 
             {/* Place Preview Card - Click anywhere except buttons to open Google Maps */}
             {currentPlace && (

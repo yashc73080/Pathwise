@@ -6,13 +6,14 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { addTrip, updateTripName } from '../firebase/firestore';
 import WeatherVisualization from './WeatherVisualization';
+import ShareTripButton from './ShareTripButton';
 import { useDraggablePanel } from '../hooks/useDraggablePanel';
 import { getBackendUrl } from '../utils/backendUrl';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { getDayColor } from '../utils/dayColors';
 
 export default function RoutePanel() {
-    const { trip, activeDayId, setActiveDayId, optimizedRoute, selectedLocations, optimizedCoords, exportToGoogleMaps, reorderOptimizedRoute, activePanel, setActivePanel, routeHeight, setRouteHeight, serializeCurrentTrip } = useTrip();
+    const { trip, activeDayId, setActiveDayId, optimizedRoute, selectedLocations, optimizedCoords, exportToGoogleMaps, reorderOptimizedRoute, activePanel, setActivePanel, routeHeight, setRouteHeight, serializeCurrentTrip, markTripSaved } = useTrip();
     const { userLoggedIn, currentUser, openLoginModal } = useAuth();
 
     const [isSaving, setIsSaving] = useState(false);
@@ -53,6 +54,7 @@ export default function RoutePanel() {
             };
 
             const tripId = await addTrip(currentUser, tripData);
+            markTripSaved(tripId);
             toast.success('Trip saved successfully!');
 
             // Generate AI name in background (non-blocking), using stops from every day
@@ -207,6 +209,7 @@ export default function RoutePanel() {
                         )}
                         {optimizedRoute && (
                             <>
+                                <ShareTripButton variant="icon" />
                                 <button
                                     onClick={handleSaveTrip}
                                     disabled={isSaving}

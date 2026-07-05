@@ -56,7 +56,7 @@ app = Flask(__name__)
 # Allowed origins: localhost + private LAN IPs (dev/mobile testing on local
 # network), Capacitor webview origins (native app), and production hosting.
 CORS(app, resources={r"/*": {"origins": [
-    "http://localhost:3000",
+    r"http://localhost:\d+",
     r"http://192\.168\.\d{1,3}\.\d{1,3}:3000",
     r"http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}:3000",
     "capacitor://localhost",
@@ -69,7 +69,7 @@ CORS(app, resources={r"/*": {"origins": [
 def add_cors_headers(response):
     origin = request.headers.get("Origin")
     allowed_origin = (
-        origin == "http://localhost:3000"
+        bool(origin and re.match(r"^http://localhost:\d+$", origin))
         or origin == "https://pathwise.web.app"
         or bool(origin and re.match(r"^http://192\.168\.\d{1,3}\.\d{1,3}:3000$", origin))
         or bool(origin and re.match(r"^http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}:3000$", origin))

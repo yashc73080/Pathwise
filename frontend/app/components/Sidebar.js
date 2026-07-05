@@ -9,6 +9,7 @@ import { addTrip, updateTripName } from '../firebase/firestore';
 import toast from 'react-hot-toast';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import WeatherVisualization from './WeatherVisualization';
+import ShareTripButton from './ShareTripButton';
 import { getBackendUrl } from '../utils/backendUrl';
 import { getDayColor } from '../utils/dayColors';
 
@@ -42,7 +43,8 @@ export default function Sidebar() {
         setActiveDayId,
         addDay,
         removeDay,
-        serializeCurrentTrip
+        serializeCurrentTrip,
+        markTripSaved
     } = useTrip();
 
     const { userLoggedIn, currentUser, openLoginModal } = useAuth();
@@ -113,6 +115,7 @@ export default function Sidebar() {
             };
 
             const tripId = await addTrip(currentUser, tripData);
+            markTripSaved(tripId);
             toast.success('Trip saved successfully!');
 
             fetch(`${getBackendUrl()}/generate-trip-name`, {
@@ -460,6 +463,7 @@ export default function Sidebar() {
                                     </svg>
                                     Export
                                 </button>
+                                <ShareTripButton variant="block" />
                             </div>
                         </div>
                     )

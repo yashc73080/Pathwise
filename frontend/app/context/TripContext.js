@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/firebase';
 import { getBackendUrl } from '../utils/backendUrl';
 import { createItineraryMarker, setMarkerNumber, clearMarker } from '../utils/markers';
 import { getDayColor } from '../utils/dayColors';
@@ -61,6 +63,10 @@ export function TripProvider({ children }) {
     const markersRef = useRef(new Map());
     const routePolylineRef = useRef(null);
     const hasRestoredRef = useRef(false);
+    // True while the local trip has edits that haven't been persisted to the
+    // backend. Live snapshots from Firestore are ignored while dirty so a
+    // remote update can't silently discard in-progress edits.
+    const isDirtyRef = useRef(false);
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
     const activeDay = useMemo(() => getActiveDay(trip, activeDayId), [trip, activeDayId]);
@@ -231,8 +237,39 @@ export function TripProvider({ children }) {
         if (centroid) map.panTo(centroid);
     }, [activeDayId, activeDay, map]);
 
+    // Live-sync: while a persisted trip is open, mirror server-side edits
+    // (agent, MCP, another device) into local state via Firestore snapshots.
+    // Requires the deployed rules to allow reads on owned/link-visible trips;
+    // if they deny, we log and carry on without live updates.
+    useEffect(() => {
+        const tripId = trip.id;
+        if (!tripId) return;
+
+        const unsubscribe = onSnapshot(
+            doc(db, 'trips', tripId),
+            (snapshot) => {
+                if (!snapshot.exists() || isDirtyRef.current) return;
+                const remote = normalizeTrip({ ...snapshot.data(), id: snapshot.id });
+                setTrip(prev => {
+                    if (prev.id !== snapshot.id) return prev;
+                    const prevStamp = prev.updatedAt?.seconds ?? prev.updatedAt;
+                    const remoteStamp = remote.updatedAt?.seconds ?? remote.updatedAt;
+                    if (prevStamp != null && remoteStamp != null && String(prevStamp) === String(remoteStamp)) {
+                        return prev;
+                    }
+                    return remote;
+                });
+            },
+            (error) => {
+                console.warn('Trip live-sync unavailable:', error?.message || error);
+            }
+        );
+        return unsubscribe;
+    }, [trip.id]);
+
     const updateActiveDay = useCallback((updater) => {
         if (!activeDay) return;
+        isDirtyRef.current = true;
         setTrip(prev => updateDayInTrip(prev, activeDay.id, updater));
     }, [activeDay]);
 
@@ -376,6 +413,7 @@ export function TripProvider({ children }) {
                 };
             }));
 
+            isDirtyRef.current = true;
             const nextTrip = normalizeTrip({ ...trip, days: optimizedDays });
             const preferredDay = getActiveDay(nextTrip, activeDayId);
             const displayDay = preferredDay?.route?.order?.length
@@ -443,6 +481,7 @@ export function TripProvider({ children }) {
             stops: [],
             route: null
         };
+        isDirtyRef.current = true;
         setTrip(prev => normalizeTrip({ ...prev, days: [...prev.days, day] }));
         setActiveDayId(day.id);
     };
@@ -456,6 +495,7 @@ export function TripProvider({ children }) {
             clearRoutePolyline();
         }
         const nextDays = trip.days.filter(day => day.id !== dayId);
+        isDirtyRef.current = true;
         setTrip(prev => normalizeTrip({ ...prev, days: nextDays }));
         if (activeDayId === dayId) setActiveDayId(nextDays[0]?.id || null);
     };
@@ -466,12 +506,26 @@ export function TripProvider({ children }) {
         clearRoutePolyline();
 
         const nextTrip = toTripV2(incomingTrip);
+        isDirtyRef.current = false;
         setTrip(nextTrip);
         setActiveDayId(nextTrip.days[0]?.id || null);
         setWeatherData(null);
         if (nextTrip.days[0]?.stops?.length) fetchWeather(nextTrip.days[0].stops);
         toast.success('Trip loaded!');
     };
+
+    // Called by the /trip/ share page before the map finishes loading so the
+    // localStorage restore doesn't clobber the trip fetched from the URL.
+    const disableLocalRestore = useCallback(() => {
+        hasRestoredRef.current = true;
+    }, []);
+
+    // Record the backend id after a save so sharing and live-sync work on the
+    // persisted document, and the local copy is no longer considered dirty.
+    const markTripSaved = useCallback((tripId) => {
+        isDirtyRef.current = false;
+        setTrip(prev => normalizeTrip({ ...prev, id: tripId }));
+    }, []);
 
     const fetchWeather = async (locations) => {
         if (!locations || locations.length === 0) return;
@@ -548,6 +602,8 @@ export function TripProvider({ children }) {
         exportToGoogleMaps,
         reorderOptimizedRoute,
         loadTrip,
+        disableLocalRestore,
+        markTripSaved,
         activePanel,
         setActivePanel,
         chatHeight,

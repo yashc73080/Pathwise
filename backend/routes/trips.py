@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+import os
+
 from flask import Blueprint, g, jsonify, request
 
 from auth import claim_token_from_request, current_uid, require_user
 from services.trip_service import AuthorizationError, NotFoundError, TripService, ValidationError
+
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "https://pathwise.web.app")
+
+
+def build_share_url(trip) -> str:
+    url = f"{FRONTEND_BASE_URL}/trip/?id={trip.id}"
+    if trip.claimToken:
+        url += f"#claim={trip.claimToken}"
+    return url
 
 
 def create_trips_blueprint(trip_service: TripService) -> Blueprint:
@@ -35,7 +46,7 @@ def create_trips_blueprint(trip_service: TripService) -> Blueprint:
             chat_session_id=data.get("chatSessionId"),
             created_by=data.get("createdBy") or "web",
         )
-        payload = {"trip": serialize_trip(trip)}
+        payload = {"trip": serialize_trip(trip), "shareUrl": build_share_url(trip)}
         if trip.claimToken:
             payload["claimToken"] = trip.claimToken
         return jsonify(payload), 201
@@ -183,6 +194,10 @@ def create_trips_blueprint(trip_service: TripService) -> Blueprint:
 def serialize_trip(trip):
     data = trip.to_dict()
     data["id"] = trip.id
+    # The claim token is a write capability. It is returned once from the
+    # create endpoint; every other response must not expose it to readers
+    # who only have link visibility.
+    data.pop("claimToken", None)
     return serialize_value(data)
 
 

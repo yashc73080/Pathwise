@@ -44,6 +44,37 @@ export const deleteTrip = async (currentUser, tripId) => {
     await parseResponse(response);
 };
 
+export const getTrip = async (currentUser, tripId, claimToken = null) => {
+    const headers = await authHeaders(currentUser);
+    if (claimToken) headers['X-Claim-Token'] = claimToken;
+    const response = await fetch(`${getBackendUrl()}/api/trips/${tripId}`, {
+        method: 'GET',
+        headers
+    });
+    const data = await parseResponse(response);
+    return data.trip;
+};
+
+export const claimTrip = async (currentUser, tripId, claimToken) => {
+    const response = await fetch(`${getBackendUrl()}/api/trips/${tripId}/claim`, {
+        method: 'POST',
+        headers: await authHeaders(currentUser),
+        body: JSON.stringify({ claimToken })
+    });
+    const data = await parseResponse(response);
+    return data.trip;
+};
+
+export const setTripVisibility = async (currentUser, tripId, visibility) => {
+    const response = await fetch(`${getBackendUrl()}/api/trips/${tripId}`, {
+        method: 'PATCH',
+        headers: await authHeaders(currentUser),
+        body: JSON.stringify({ visibility })
+    });
+    const data = await parseResponse(response);
+    return data.trip;
+};
+
 export const updateTripName = async (currentUser, tripId, name) => {
     const response = await fetch(`${getBackendUrl()}/api/trips/${tripId}`, {
         method: 'PATCH',

@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/authContext';
 import { useTrip } from '../context/TripContext';
-import { getUserTrips, deleteTrip } from '../firebase/firestore';
+import { getUserTrips, deleteTrip, setTripVisibility } from '../firebase/firestore';
 import { doSignOut } from '../firebase/auth';
 import toast from 'react-hot-toast';
 import { getOrderedStops } from '../utils/tripModel';
+import { copyToClipboard, getShareUrl } from '../utils/share';
 
 export default function SavedTripsModal() {
     const { currentUser, isSavedTripsModalOpen, closeSavedTripsModal } = useAuth();
@@ -49,6 +50,22 @@ export default function SavedTripsModal() {
             fetchTrips(); // Refresh list
         } catch (error) {
             toast.error('Failed to delete trip');
+        }
+    };
+
+    const handleShare = async (trip, e) => {
+        e.stopPropagation();
+        try {
+            if (trip.visibility !== 'link') {
+                await setTripVisibility(currentUser, trip.id, 'link');
+                setTrips(prev => prev.map(existing =>
+                    existing.id === trip.id ? { ...existing, visibility: 'link' } : existing
+                ));
+            }
+            await copyToClipboard(getShareUrl(trip.id));
+            toast.success('Share link copied!');
+        } catch (error) {
+            toast.error('Failed to create share link');
         }
     };
 
@@ -139,6 +156,15 @@ export default function SavedTripsModal() {
                                             </p>
                                         </div>
                                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={(e) => handleShare(trip, e)}
+                                                className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                                title="Copy share link"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                                </svg>
+                                            </button>
                                             <button
                                                 onClick={(e) => handleExport(trip, e)}
                                                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"

@@ -54,7 +54,12 @@ class TripService:
         for day in trip.days:
             for index, stop in enumerate(day.stops):
                 day.stops[index] = self._geocode_stop_if_needed(stop)
-        return self.repository.create(trip)
+        created = self.repository.create(trip)
+        # The repository strips the claim token from the stored document;
+        # restore it on the returned object so the create response can hand
+        # it to the caller exactly once.
+        created.claimToken = trip.claimToken
+        return created
 
     def get_trip(self, trip_id: str, uid: Optional[str] = None, claim_token: Optional[str] = None, write: bool = False) -> Trip:
         trip = self._require_trip(trip_id)
@@ -77,7 +82,8 @@ class TripService:
 
     def claim_trip(self, trip_id: str, claim_token: str, uid: str) -> Trip:
         trip = self._require_trip(trip_id)
-        if not claim_token or claim_token != trip.claimToken:
+        stored_token = self.repository.get_claim_token(trip_id)
+        if not claim_token or not stored_token or claim_token != stored_token:
             raise AuthorizationError("Invalid claim token")
         trip.ownerId = uid
         trip.visibility = "private"
@@ -246,8 +252,10 @@ class TripService:
     def authorize(self, trip: Trip, uid: Optional[str], claim_token: Optional[str], write: bool) -> None:
         if uid and trip.ownerId == uid:
             return
-        if claim_token and trip.claimToken and claim_token == trip.claimToken:
-            return
+        if claim_token:
+            stored_token = self.repository.get_claim_token(trip.id)
+            if stored_token and claim_token == stored_token:
+                return
         if not write and trip.visibility == "link":
             return
         raise AuthorizationError("Unauthorized")

@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import WeatherVisualization from './WeatherVisualization';
 import ShareTripButton from './ShareTripButton';
+import RouteTimeline from './RouteTimeline';
 import { getBackendUrl } from '../utils/backendUrl';
 import { getDayColor } from '../utils/dayColors';
 
@@ -34,8 +35,11 @@ export default function Sidebar() {
         hasOptimizableDay,
         optimizationRunId,
         optimizedCoords,
+        orderedRouteStops,
         exportToGoogleMaps,
         reorderOptimizedRoute,
+        updateStopDetails,
+        moveStopToDay,
         sidebarHeight,
         setSidebarHeight,
         trip,
@@ -89,12 +93,6 @@ export default function Sidebar() {
             setDesktopTab('itinerary');
         }
     }, [isRouteStale]);
-
-    const handleRouteDragEnd = (result) => {
-        if (!result.destination) return;
-        if (result.destination.index === result.source.index) return;
-        reorderOptimizedRoute(result.source.index, result.destination.index);
-    };
 
     const handleClose = () => {
         setIsSidebarOpen(false);
@@ -217,6 +215,9 @@ export default function Sidebar() {
                             setEndLocation={setEndLocation}
                             removeLocation={removeLocation}
                             reorderLocations={reorderLocations}
+                            days={trip.days}
+                            activeDayId={activeDayId}
+                            moveStopToDay={moveStopToDay}
                         />
                     )}
                 </div>
@@ -306,6 +307,9 @@ export default function Sidebar() {
                                     setEndLocation={setEndLocation}
                                     removeLocation={removeLocation}
                                     reorderLocations={reorderLocations}
+                                    days={trip.days}
+                                    activeDayId={activeDayId}
+                                    moveStopToDay={moveStopToDay}
                                 />
                             )}
                         </>
@@ -318,68 +322,13 @@ export default function Sidebar() {
                                 setActiveDayId={setActiveDayId}
                             />
                             {optimizedRoute && optimizedCoords ? (
-                                <DragDropContext onDragEnd={handleRouteDragEnd}>
-                                    <Droppable
-                                        droppableId="optimized-route"
-                                        renderClone={(provided, snapshot, rubric) => {
-                                            const location = optimizedCoords[rubric.source.index];
-                                            const index = rubric.source.index;
-                                            return (
-                                                <div
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    {...provided.dragHandleProps}
-                                                    className={`flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg cursor-grab active:cursor-grabbing shadow-lg scale-[1.02]`}
-                                                >
-                                                    <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                                                    </svg>
-                                                    <span
-                                                        className="w-7 h-7 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm"
-                                                        style={{ backgroundColor: activeDayColor.bg, border: `2px solid ${activeDayColor.border}` }}
-                                                    >
-                                                        {index + 1}
-                                                    </span>
-                                                    <span className="text-gray-700 dark:text-gray-200 flex-1 truncate">{location.name}</span>
-                                                </div>
-                                            );
-                                        }}
-                                    >
-                                        {(provided) => (
-                                            <div
-                                                {...provided.droppableProps}
-                                                ref={provided.innerRef}
-                                                className="space-y-2"
-                                            >
-                                                {optimizedCoords.map((location, i) => (
-                                                    <Draggable key={`route-${i}`} draggableId={`route-${i}`} index={i}>
-                                                        {(provided, snapshot) => (
-                                                            <div
-                                                                ref={provided.innerRef}
-                                                                {...provided.draggableProps}
-                                                                {...provided.dragHandleProps}
-                                                                className={`flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${snapshot.isDragging ? 'shadow-lg scale-[1.02] bg-blue-50 dark:bg-blue-900/30' : ''
-                                                                    }`}
-                                                            >
-                                                                <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                                                                </svg>
-                                                                <span
-                                                                    className="w-7 h-7 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm"
-                                                                    style={{ backgroundColor: activeDayColor.bg, border: `2px solid ${activeDayColor.border}` }}
-                                                                >
-                                                                    {i + 1}
-                                                                </span>
-                                                                <span className="text-gray-700 dark:text-gray-200 flex-1 truncate">{location.name}</span>
-                                                            </div>
-                                                        )}
-                                                    </Draggable>
-                                                ))}
-                                                {provided.placeholder}
-                                            </div>
-                                        )}
-                                    </Droppable>
-                                </DragDropContext>
+                                <RouteTimeline
+                                    stops={orderedRouteStops}
+                                    dayColor={activeDayColor}
+                                    onReorder={reorderOptimizedRoute}
+                                    onUpdateStop={updateStopDetails}
+                                    droppableId="optimized-route"
+                                />
                             ) : (
                                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                                     <p>No optimized route yet</p>
@@ -551,7 +500,13 @@ function RouteDayTabs({ days, activeDayId, setActiveDayId }) {
 }
 
 // LocationList component (no drag-and-drop, just display)
-function LocationList({ selectedLocations, startIndex, endIndex, setStartLocation, setEndLocation, removeLocation, reorderLocations }) {
+function LocationList({ selectedLocations, startIndex, endIndex, setStartLocation, setEndLocation, removeLocation, reorderLocations, days = [], activeDayId, moveStopToDay }) {
+    // Which stop's "move to day" menu is open (stop id or null)
+    const [moveMenuStopId, setMoveMenuStopId] = useState(null);
+    const otherDays = days
+        .map((day, index) => ({ ...day, index }))
+        .filter(day => day.id !== activeDayId);
+
     const handleDragEnd = (result) => {
         if (!result.destination || result.destination.index === result.source.index) return;
         reorderLocations(result.source.index, result.destination.index);
@@ -598,7 +553,38 @@ function LocationList({ selectedLocations, startIndex, endIndex, setStartLocatio
                                             </div>
 
                                             {/* Action buttons */}
-                                            <div className="flex gap-1 shrink-0">
+                                            <div className="flex gap-1 shrink-0 relative">
+                                                {otherDays.length > 0 && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => setMoveMenuStopId(moveMenuStopId === location.id ? null : location.id)}
+                                                            className="p-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"
+                                                            title="Move to another day"
+                                                            aria-label="Move to another day"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                                            </svg>
+                                                        </button>
+                                                        {moveMenuStopId === location.id && (
+                                                            <div className="absolute right-0 top-9 z-30 w-32 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg">
+                                                                {otherDays.map(day => (
+                                                                    <button
+                                                                        key={day.id}
+                                                                        onClick={() => {
+                                                                            moveStopToDay(location.id, day.id);
+                                                                            setMoveMenuStopId(null);
+                                                                        }}
+                                                                        className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                                                                    >
+                                                                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getDayColor(day.index).bg }} />
+                                                                        {day.label || `Day ${day.index + 1}`}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                )}
                                                 <button
                                                     onClick={() => setStartLocation(index)}
                                                     className={`p-1.5 rounded transition-all ${startIndex === index

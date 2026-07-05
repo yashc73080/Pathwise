@@ -61,7 +61,7 @@ export function TripProvider({ children }) {
     const [optimizationRunId, setOptimizationRunId] = useState(0);
 
     const markersRef = useRef(new Map());
-    const routePolylineRef = useRef(null);
+    const routePolylinesRef = useRef(new Map());
     const hasRestoredRef = useRef(false);
     // True while the local trip has edits that haven't been persisted to the
     // backend. Live snapshots from Firestore are ignored while dirty so a
@@ -100,10 +100,8 @@ export function TripProvider({ children }) {
     }, [optimizedRoute, orderedRouteStops]);
 
     const clearRoutePolyline = useCallback(() => {
-        if (routePolylineRef.current) {
-            routePolylineRef.current.setMap(null);
-            routePolylineRef.current = null;
-        }
+        routePolylinesRef.current.forEach(polyline => polyline.setMap(null));
+        routePolylinesRef.current.clear();
     }, []);
 
     const clearRouteForActiveDay = useCallback(() => {
@@ -112,31 +110,43 @@ export function TripProvider({ children }) {
         clearRoutePolyline();
     }, [activeDay, clearRoutePolyline]);
 
-    const redrawRoute = useCallback((day = activeDay, targetMap = map) => {
-        if (!targetMap || !day?.route?.order?.length) {
-            clearRoutePolyline();
-            return;
-        }
+    // Draw one polyline per optimized day: the active day at full strength,
+    // other days dimmed so the whole trip stays visible on the map.
+    const redrawRoutes = useCallback((targetMap = map) => {
+        if (!targetMap) return;
 
-        const dayIndex = trip.days.findIndex(candidate => candidate.id === day.id);
-        const dayColor = getDayColor(dayIndex < 0 ? 0 : dayIndex);
-        const orderedStops = getOrderedStops(day);
-        const routeCoordinates = buildRouteCoordinates(orderedStops, !day.route.endStopId);
+        const drawnDayIds = new Set();
+        trip.days.forEach((day, dayIndex) => {
+            const existing = routePolylinesRef.current.get(day.id);
+            if (existing) {
+                existing.setMap(null);
+                routePolylinesRef.current.delete(day.id);
+            }
+            if (!day.route?.order?.length) return;
 
-        if (routePolylineRef.current) {
-            routePolylineRef.current.setMap(null);
-            routePolylineRef.current = null;
-        }
-        if (routeCoordinates.length === 0) return;
-        routePolylineRef.current = new window.google.maps.Polyline({
-            path: routeCoordinates,
-            geodesic: true,
-            strokeColor: dayColor.bg,
-            strokeOpacity: 1.0,
-            strokeWeight: 3,
-            map: targetMap
+            const routeCoordinates = buildRouteCoordinates(getOrderedStops(day), !day.route.endStopId);
+            if (routeCoordinates.length === 0) return;
+
+            const dayColor = getDayColor(dayIndex);
+            const isActiveDay = day.id === activeDay?.id;
+            routePolylinesRef.current.set(day.id, new window.google.maps.Polyline({
+                path: routeCoordinates,
+                geodesic: true,
+                strokeColor: dayColor.bg,
+                strokeOpacity: isActiveDay ? 1.0 : 0.45,
+                strokeWeight: isActiveDay ? 4 : 3,
+                map: targetMap
+            }));
+            drawnDayIds.add(day.id);
         });
-    }, [activeDay, clearRoutePolyline, map, trip.days]);
+
+        routePolylinesRef.current.forEach((polyline, dayId) => {
+            if (!drawnDayIds.has(dayId)) {
+                polyline.setMap(null);
+                routePolylinesRef.current.delete(dayId);
+            }
+        });
+    }, [activeDay, map, trip.days]);
 
     useEffect(() => {
         if (!activeDayId && trip.days.length > 0) {
@@ -228,8 +238,8 @@ export function TripProvider({ children }) {
             });
         });
 
-        redrawRoute(activeDay, map);
-    }, [activeDay, map, redrawRoute, trip.days]);
+        redrawRoutes(map);
+    }, [activeDay, map, redrawRoutes, trip.days]);
 
     useEffect(() => {
         if (!map || !activeDay) return;
@@ -514,6 +524,45 @@ export function TripProvider({ children }) {
         toast.success('Trip loaded!');
     };
 
+    // Edit arrival/departure times or notes on any stop, on any day.
+    const updateStopDetails = useCallback((stopId, patch) => {
+        isDirtyRef.current = true;
+        setTrip(prev => normalizeTrip({
+            ...prev,
+            days: prev.days.map(day => ({
+                ...day,
+                stops: day.stops.map(stop => stop.id === stopId ? { ...stop, ...patch } : stop)
+            }))
+        }));
+    }, []);
+
+    // Move a stop to another day. Both days lose their optimized route since
+    // their stop sets changed; markers re-key to the new day color via the
+    // marker reconciliation effect.
+    const moveStopToDay = useCallback((stopId, toDayId, position = null) => {
+        setTrip(prev => {
+            const sourceDay = prev.days.find(day => day.stops.some(stop => stop.id === stopId));
+            if (!sourceDay || sourceDay.id === toDayId) return prev;
+            const stop = sourceDay.stops.find(candidate => candidate.id === stopId);
+
+            isDirtyRef.current = true;
+            const days = prev.days.map(day => {
+                if (day.id === sourceDay.id) {
+                    return { ...day, stops: day.stops.filter(candidate => candidate.id !== stopId), route: null };
+                }
+                if (day.id === toDayId) {
+                    const stops = [...day.stops];
+                    stops.splice(position == null ? stops.length : position, 0, stop);
+                    return { ...day, stops, route: null };
+                }
+                return day;
+            });
+            return normalizeTrip({ ...prev, days });
+        });
+        clearRoutePolyline();
+        toast.success('Stop moved');
+    }, [clearRoutePolyline]);
+
     // Called by the /trip/ share page before the map finishes loading so the
     // localStorage restore doesn't clobber the trip fetched from the URL.
     const disableLocalRestore = useCallback(() => {
@@ -599,8 +648,11 @@ export function TripProvider({ children }) {
         setStartLocation,
         setEndLocation,
         optimizedCoords,
+        orderedRouteStops,
         exportToGoogleMaps,
         reorderOptimizedRoute,
+        updateStopDetails,
+        moveStopToDay,
         loadTrip,
         disableLocalRestore,
         markTripSaved,

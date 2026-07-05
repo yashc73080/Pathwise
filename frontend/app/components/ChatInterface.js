@@ -10,7 +10,7 @@ import { createPreviewMarker, clearMarker } from '../utils/markers';
 
 export default function ChatInterface({ selectedLocations, onNewChat, onShowHistory, showHistoryProp, setShowHistoryProp, newChatTrigger }) {
   const { currentUser } = useAuth();
-  const { setCurrentPlace, setCurrentMarker, currentMarker, map, setChatHeight, setActivePanel, activePanel, currentChatSessionId, setCurrentChatSessionId, addToItinerary, submitItinerary } = useTrip();
+  const { setCurrentPlace, setCurrentMarker, currentMarker, map, setChatHeight, setActivePanel, activePanel, currentChatSessionId, setCurrentChatSessionId, addToItinerary, ensureTripPersisted, refreshTripFromServer } = useTrip();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -26,41 +26,27 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
   const textareaRef = useRef(null);
   const isNewChatRef = useRef(false); // Prevents auto-loading after starting new chat
 
-  // Parse message content to extract structured place data and agent commands
+  // Legacy display support: old saved sessions contain literal HTML-comment
+  // markers (PLACES_DATA / ADD_LOCATIONS / OPTIMIZE_ROUTE) in message text.
+  // Strip them at display time (place data still renders as cards). New
+  // messages carry places as structured data and never contain markers.
   const parseMessageContent = (content) => {
     const placesMatch = content.match(/<!--PLACES_DATA:(.*?):PLACES_DATA-->/);
-    const addLocationsMatch = content.match(/<!--ADD_LOCATIONS:(.*?):ADD_LOCATIONS-->/);
-    const optimizeRouteMatch = content.match(/<!--OPTIMIZE_ROUTE:(.*?):OPTIMIZE_ROUTE-->/);
-
     let places = null;
-    let addLocations = null;
-    let shouldOptimize = false;
-    let textContent = content;
 
     if (placesMatch) {
       try {
         places = JSON.parse(placesMatch[1]);
-        textContent = textContent.replace(/<!--PLACES_DATA:.*?:PLACES_DATA-->/g, '');
       } catch (e) {
-        console.error('Error parsing places data:', e);
+        console.error('Error parsing legacy places data:', e);
       }
     }
 
-    if (addLocationsMatch) {
-      try {
-        addLocations = JSON.parse(addLocationsMatch[1]);
-        textContent = textContent.replace(/<!--ADD_LOCATIONS:.*?:ADD_LOCATIONS-->/g, '');
-      } catch (e) {
-        console.error('Error parsing add locations data:', e);
-      }
-    }
+    const textContent = content
+      .replace(/<!--(?:PLACES_DATA|ADD_LOCATIONS|OPTIMIZE_ROUTE):[\s\S]*?(?::(?:PLACES_DATA|ADD_LOCATIONS|OPTIMIZE_ROUTE)-->|$)/g, '')
+      .trim();
 
-    if (optimizeRouteMatch) {
-      shouldOptimize = optimizeRouteMatch[1] === 'true';
-      textContent = textContent.replace(/<!--OPTIMIZE_ROUTE:.*?:OPTIMIZE_ROUTE-->/g, '');
-    }
-
-    return { places, addLocations, shouldOptimize, textContent: textContent.trim() };
+    return { places, textContent };
   };
 
   // Location Card component
@@ -226,40 +212,6 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
     }
   };
 
-  // Process agent tool commands when messages change
-  const processedMessagesRef = useRef(new Set());
-
-  useEffect(() => {
-    // Find the latest assistant message with commands
-    const latestAssistantIndex = messages.findLastIndex(m => m.role === 'assistant');
-    if (latestAssistantIndex < 0) return;
-
-    const latestMessage = messages[latestAssistantIndex];
-    const messageKey = `${latestAssistantIndex}-${latestMessage.content.slice(0, 50)}`;
-
-    // Skip if we've already processed this message
-    if (processedMessagesRef.current.has(messageKey)) return;
-
-    const { addLocations, shouldOptimize } = parseMessageContent(latestMessage.content);
-
-    // Process add locations command
-    if (addLocations && addLocations.length > 0) {
-      processedMessagesRef.current.add(messageKey);
-      console.log('Agent auto-adding locations:', addLocations.length);
-      handleAddAllLocations(addLocations);
-    }
-
-    // Process optimize route command
-    if (shouldOptimize) {
-      processedMessagesRef.current.add(messageKey);
-      console.log('Agent triggering route optimization');
-      // Small delay to let locations be added first
-      setTimeout(() => {
-        submitItinerary();
-      }, 500);
-    }
-  }, [messages]);
-
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -361,14 +313,6 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
       });
       if (response.ok) {
         const data = await response.json();
-        // Historical messages may still contain agent command markers
-        // (ADD_LOCATIONS / OPTIMIZE_ROUTE). Mark them as processed so loading
-        // an old session never re-executes commands against the current trip.
-        data.messages.forEach((m, i) => {
-          if (m.role === 'assistant') {
-            processedMessagesRef.current.add(`${i}-${m.content.slice(0, 50)}`);
-          }
-        });
         setMessages(data.messages);
         setCurrentSessionId(sessionId);
         setCurrentChatSessionId(sessionId); // Sync with context for trip saving
@@ -411,23 +355,26 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
       }
 
       const backendUrl = getBackendUrl();
-      // Serialize locations to JSON to preserve coordinates
-      const locationsData = selectedLocations.map(loc => ({
-        name: loc.name,
-        address: loc.address,
-        lat: loc.lat || loc.location?.lat,
-        lng: loc.lng || loc.location?.lng
-      }));
-      const locationsString = JSON.stringify(locationsData);
+
+      // Make sure the agent has a stored trip to operate on (creates an
+      // anonymous trip if needed, syncs unsaved local edits otherwise).
+      let tripAuth = { id: null, claimToken: null };
+      try {
+        tripAuth = await ensureTripPersisted(currentUser);
+      } catch (persistError) {
+        console.warn('Could not persist trip before chat:', persistError);
+      }
 
       const token = currentUser ? await currentUser.getIdToken() : '';
+      const chatUrl = `${backendUrl}/chat?chatId=${sessionId}` + (tripAuth.id ? `&tripId=${tripAuth.id}` : '');
 
-      const response = await fetch(`${backendUrl}/chat?locations=${encodeURIComponent(locationsString)}&chatId=${sessionId}`, {
+      const response = await fetch(chatUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-          'Authorization': `Bearer ${token}`
+          'Accept': 'application/x-ndjson',
+          'Authorization': `Bearer ${token}`,
+          ...(tripAuth.claimToken ? { 'X-Claim-Token': tripAuth.claimToken } : {})
         },
         body: JSON.stringify([
           ...messages,
@@ -439,17 +386,26 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      // The backend streams NDJSON events: text deltas, place cards, and
+      // trip_updated signals when the agent mutates the stored trip.
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let assistantMessage = { role: 'assistant', content: '' };
+      let assistantMessage = { role: 'assistant', content: '', places: [] };
+      let buffer = '';
+      let tripWasUpdated = false;
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+      const applyEvent = (event) => {
+        if (event.type === 'text') {
+          assistantMessage.content += event.delta || '';
+        } else if (event.type === 'places') {
+          assistantMessage.places = [...assistantMessage.places, ...(event.places || [])];
+        } else if (event.type === 'trip_updated') {
+          tripWasUpdated = true;
+          refreshTripFromServer(currentUser);
+        }
+      };
 
-        const text = decoder.decode(value);
-        assistantMessage.content += text;
-
+      const flushMessage = () => {
         setMessages(prev => {
           const newMessages = [...prev];
           if (newMessages[newMessages.length - 1].role === 'assistant') {
@@ -459,6 +415,40 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
           }
           return newMessages;
         });
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            applyEvent(JSON.parse(line));
+          } catch (parseError) {
+            console.error('Bad stream event:', line, parseError);
+          }
+        }
+        flushMessage();
+      }
+
+      if (buffer.trim()) {
+        try {
+          applyEvent(JSON.parse(buffer));
+          flushMessage();
+        } catch {
+          // incomplete trailing line - ignore
+        }
+      }
+
+      // One final refresh so the UI reflects the last mutation even if an
+      // earlier refresh raced the stream.
+      if (tripWasUpdated) {
+        refreshTripFromServer(currentUser);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -558,9 +548,13 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
         )}
         {messages.map((message, index) => {
           const isAssistant = message.role === 'assistant';
-          const { places, textContent } = isAssistant
+          const parsed = isAssistant
             ? parseMessageContent(message.content)
             : { places: null, textContent: message.content };
+          // New messages carry places as structured data; legacy saved
+          // messages may embed them in the content markers instead.
+          const places = message.places?.length ? message.places : parsed.places;
+          const textContent = parsed.textContent;
 
           return (
             <div

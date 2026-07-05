@@ -235,122 +235,133 @@ def optimize_route():
         'total_time': total_time
     })
 
+def build_trip_prompt_context(trip):
+    """Compact trip state for the agent's system prompt: day/stop ids are the
+    handles the model passes to tools, plus a centroid for nearby searches."""
+    days = []
+    all_coords = []
+    for day in trip.days:
+        stops = []
+        for stop in day.stops:
+            entry = {"id": stop.id, "name": stop.name}
+            if stop.lat is not None and stop.lng is not None:
+                entry["lat"] = stop.lat
+                entry["lng"] = stop.lng
+                all_coords.append((stop.lat, stop.lng))
+            if stop.arrivalTime:
+                entry["arrivalTime"] = stop.arrivalTime
+            stops.append(entry)
+        days.append({
+            "id": day.id,
+            "label": day.label,
+            "date": day.date,
+            "stops": stops,
+            "optimized": bool(day.route and day.route.order),
+        })
+    state = {
+        "title": trip.title,
+        "startDate": trip.startDate,
+        "endDate": trip.endDate,
+        "days": days,
+    }
+    centroid_info = ""
+    if all_coords:
+        center_lat = sum(lat for lat, _ in all_coords) / len(all_coords)
+        center_lng = sum(lng for _, lng in all_coords) / len(all_coords)
+        centroid_info = (
+            f"\nThe trip centroid is approximately lat:{center_lat:.4f}, lng:{center_lng:.4f}. "
+            "Use it as the 'location' parameter in search_places for general 'nearby' queries."
+        )
+    return json.dumps(state), centroid_info
+
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
         messages = request.json
-        locations_param = request.args.get('locations')
-        centroid_info = ""
-        formatted_locations = locations_param
-        
-        try:
-            # Try parsing as JSON first
-            if locations_param and (locations_param.startswith('[') or locations_param.startswith('{')):
-                locations_data = json.loads(locations_param)
-                if isinstance(locations_data, list) and len(locations_data) > 0:
-                    # Calculate Centroid
-                    lats = [float(loc.get('lat')) for loc in locations_data if loc.get('lat') is not None]
-                    lngs = [float(loc.get('lng')) for loc in locations_data if loc.get('lng') is not None]
-                    
-                    formatted_req_locations = []
-                    for loc in locations_data:
-                        loc_str = loc.get('name', 'Unknown')
-                        if loc.get('lat') and loc.get('lng'):
-                            loc_str += f" ({loc['lat']},{loc['lng']})"
-                        formatted_req_locations.append(loc_str)
-                    formatted_locations = "; ".join(formatted_req_locations)
-
-                    if lats and lngs:
-                        center_lat = sum(lats) / len(lats)
-                        center_lng = sum(lngs) / len(lngs)
-                        centroid_info = f"\nThe geographic center (centroid) of the trip is approximately lat:{center_lat:.4f}, lng:{center_lng:.4f}. Use this coordinates as the 'location' parameter in search_places for general 'nearby' queries."
-        except Exception as e:
-            # Fallback to assuming it's the old semicolon string format or just plain text
-            print(f"Error parsing locations for chat context: {e}")
-            pass
-
-        # System message for context
-        system_message = {
-            "role": "system",
-            "content": f"""You are Pathwise AI, an AI travel assistant with action-taking capabilities. 
-            Current itinerary locations: {formatted_locations}.
-            {centroid_info}
-            
-            Your tools:
-            1. `plan_trip` - For road trips between cities. Returns places (restaurants, attractions, gas stations) at waypoints along the route. Use this for requests like "trip from X to Y with stops".
-            2. `search_places` - Search for specific places. Use for single-location queries.
-            3. `add_locations_to_itinerary` - Add places to the trip.
-            4. `optimize_route` - Optimize the route order.
-            
-            ROAD TRIP WORKFLOW:
-            1. Call `plan_trip(origin, destination, stop_types)` - it will find places along the entire route
-            2. After plan_trip, call `add_locations_to_itinerary` with places the user wants
-            3. Call `optimize_route` to finalize
-            
-            When the user asks for "nearby" recommendations without specifying a reference point, infer whether they mean near a specific stop or the general area of the trip. 
-            The `search_places` tool accepts 'location' (lat,lng string) and 'radius' (meters) parameters. PREFER using these parameters with the centroid or a specific location's coordinates over text-based search alone.
-            
-            IMPORTANT: When you use the `search_places` tool, the results will be displayed to the user as visual cards. IN YOUR TEXT RESPONSE, DO NOT LIST THE PLACES AGAIN (no names, addresses, or ratings). Only provide a brief summary (e.g., 'I found several options nearby...') or specific advice/directions if asked. Avoid redundancy.
-            """
-        }
-        
-        # Add system message at the beginning
-        messages.insert(0, system_message)
-        
-        # Generator for streaming response using Vertex AI agent
-        
-        # Capture request context needed for the generator
-        auth_header = request.headers.get('Authorization')
         chat_id_arg = request.args.get('chatId')
-        locations_arg = request.args.get('locations')
-        
+        trip_id = request.args.get('tripId')
+        claim_token = request.headers.get('X-Claim-Token') or request.args.get('claimToken')
+
         # Pre-verify user if auth header exists
+        auth_header = request.headers.get('Authorization')
         user_id = None
         if auth_header and auth_header.startswith("Bearer "):
             try:
                 token = auth_header.split("Bearer ")[1]
                 decoded_token = firebase_auth.verify_id_token(token)
                 user_id = decoded_token['uid']
-                print(f"DEBUG: User authenticated: {user_id}")
             except Exception as auth_error:
                 print(f"DEBUG: Auth verification failed: {auth_error}")
 
-        # Generator for streaming response using Vertex AI agent
+        # Load the stored trip the agent will operate on
+        trip_state_json = "null"
+        centroid_info = ""
+        agent_trip_id = None
+        if trip_id:
+            try:
+                trip = trip_service.get_trip(trip_id, uid=user_id, claim_token=claim_token, write=False)
+                trip_state_json, centroid_info = build_trip_prompt_context(trip)
+                agent_trip_id = trip_id
+            except Exception as trip_error:
+                print(f"DEBUG: Could not load trip {trip_id} for chat: {trip_error}")
+
+        system_message = {
+            "role": "system",
+            "content": f"""You are Pathwise AI, a travel assistant that operates directly on the user's stored trip.
+
+Current trip state (day ids and stop ids are the handles for your tools):
+{trip_state_json}
+{centroid_info}
+
+Your tools:
+- `search_places` - Search for places. Results are shown to the user as visual cards.
+- `plan_trip` - Road trips between cities: returns waypoints and places along the route.
+- `add_stops` - Add stops to a day of the trip (geocoded automatically if coordinates are missing).
+- `remove_stop` / `move_stop` - Remove a stop, or move it to another day.
+- `optimize_day` - Optimize a day's visiting order (shortest driving route).
+- `create_day` / `set_dates` - Extend the trip or set its dates.
+
+Guidelines:
+- Changes you make through tools appear in the user's map and itinerary immediately; after acting, summarize briefly what you changed instead of restating the trip.
+- NEVER create a day and reference it in the same turn. Call `create_day` alone first, read the new day's id from the result, then move or add stops to it in the next step.
+- ROAD TRIP WORKFLOW: `plan_trip` first, then `add_stops` for the places the user wants, then `optimize_day`.
+- For "nearby" queries prefer passing 'location' (lat,lng) and 'radius' to `search_places` (use the centroid or a specific stop's coordinates).
+- When `search_places` returns results the user sees them as cards: DO NOT repeat names, addresses, or ratings in your text. Offer a brief summary or advice only.
+- If the trip state is null, you can still search and give advice, but tell the user to add a location before asking you to edit the trip.
+""".strip()
+        }
+        messages.insert(0, system_message)
+
         def generate():
-            full_response = ""
-            for chunk in get_chat_response(messages, gmaps):
-                full_response += chunk
-                yield chunk
-            
+            full_text = ""
+            for event in get_chat_response(
+                messages,
+                gmaps,
+                trip_service=trip_service,
+                trip_id=agent_trip_id,
+                uid=user_id,
+                claim_token=claim_token,
+            ):
+                if event.get("type") == "text":
+                    full_text += event.get("delta") or ""
+                yield json.dumps(event) + "\n"
+
             # Save the conversation using session_service
             if user_id and chat_id_arg:
                 try:
-                    print(f"DEBUG: Saving to session {chat_id_arg} for user {user_id}")
-                    
-                    # Save user message (last message before system was inserted)
                     user_content = messages[-1]['content']
                     session_service.add_message(user_id, chat_id_arg, 'user', user_content)
-                    
-                    # Save assistant response
-                    session_service.add_message(user_id, chat_id_arg, 'assistant', full_response)
-                    
-                    # Sanitize lastMessage for metadata (remove all tool data markers)
-                    clean_last_message = re.sub(r'<!--(?:PLACES_DATA|ADD_LOCATIONS|OPTIMIZE_ROUTE):[\s\S]*?(?::(?:PLACES_DATA|ADD_LOCATIONS|OPTIMIZE_ROUTE)-->|$)', '', full_response).strip()
-                    
-                    # Update session metadata
+                    session_service.add_message(user_id, chat_id_arg, 'assistant', full_text)
                     session_service.update_session(user_id, chat_id_arg, {
-                        'locations': locations_arg,
-                        'lastMessage': clean_last_message[:200]
+                        'tripId': trip_id,
+                        'lastMessage': full_text.strip()[:200]
                     })
-                    
-                    print("DEBUG: Chat saved successfully via session_service")
                 except Exception as save_error:
                     print(f"Error saving chat: {save_error}")
-            else:
-                print(f"DEBUG: Skipping save. user_id={user_id}, chat_id={chat_id_arg}")
 
-        return Response(generate(), mimetype='text/event-stream')
-    
+        return Response(generate(), mimetype='application/x-ndjson')
+
     except Exception as e:
         print(f"Chat error: {str(e)}")
         return jsonify({"error": str(e)}), 500

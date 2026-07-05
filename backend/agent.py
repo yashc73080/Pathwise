@@ -232,40 +232,101 @@ search_places_func = FunctionDeclaration(
     },
 )
 
-# Function to add multiple locations to the itinerary at once
-add_locations_func = FunctionDeclaration(
-    name="add_locations_to_itinerary",
-    description="Add multiple locations to the user's trip itinerary at once. Use this when the user wants to plan a trip with multiple stops, or after searching for places along a route. This will automatically add all specified locations as waypoints.",
+# --- Trip mutation tools: executed server-side against TripService ---
+
+add_stops_func = FunctionDeclaration(
+    name="add_stops",
+    description="Add one or more stops to a day of the user's stored trip. Use after searching for places, or when the user names places directly. Stops without coordinates are geocoded automatically.",
     parameters={
         "type": "object",
         "properties": {
-            "locations": {
+            "stops": {
                 "type": "array",
-                "description": "Array of locations to add to the itinerary",
+                "description": "Stops to add",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "name": {"type": "string", "description": "Name of the location"},
-                        "address": {"type": "string", "description": "Full address of the location"},
-                        "lat": {"type": "number", "description": "Latitude coordinate"},
-                        "lng": {"type": "number", "description": "Longitude coordinate"},
+                        "name": {"type": "string", "description": "Name of the place"},
+                        "address": {"type": "string", "description": "Full address (optional)"},
+                        "lat": {"type": "number", "description": "Latitude (optional, geocoded if missing)"},
+                        "lng": {"type": "number", "description": "Longitude (optional, geocoded if missing)"},
                         "place_id": {"type": "string", "description": "Google Places ID (optional)"}
                     },
-                    "required": ["name", "lat", "lng"]
+                    "required": ["name"]
                 }
+            },
+            "day_id": {
+                "type": "string",
+                "description": "The id of the day to add stops to (from the trip state). Defaults to the first day."
             }
         },
-        "required": ["locations"]
+        "required": ["stops"]
     },
 )
 
-# Function to optimize the current route
-optimize_route_func = FunctionDeclaration(
-    name="optimize_route",
-    description="Optimize the route for all locations currently in the user's itinerary. Call this after adding locations to calculate the most efficient travel order. This uses the Christofides algorithm to find the optimal path.",
+remove_stop_func = FunctionDeclaration(
+    name="remove_stop",
+    description="Remove a stop from the user's trip. Identify it by stop_id from the trip state, or by name.",
     parameters={
         "type": "object",
-        "properties": {},
+        "properties": {
+            "stop_id": {"type": "string", "description": "The id of the stop to remove (preferred)"},
+            "stop_name": {"type": "string", "description": "The name of the stop, if the id is unknown"}
+        },
+        "required": []
+    },
+)
+
+move_stop_func = FunctionDeclaration(
+    name="move_stop",
+    description="Move a stop to a different day of the trip, e.g. 'move the museum to tomorrow'.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "stop_id": {"type": "string", "description": "The id of the stop to move (preferred)"},
+            "stop_name": {"type": "string", "description": "The name of the stop, if the id is unknown"},
+            "to_day_id": {"type": "string", "description": "The id of the destination day (from the trip state)"}
+        },
+        "required": ["to_day_id"]
+    },
+)
+
+optimize_day_func = FunctionDeclaration(
+    name="optimize_day",
+    description="Optimize the visiting order of a day's stops for shortest driving distance (Christofides TSP). Call after adding or moving stops. Returns the optimized order and total distance.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "day_id": {
+                "type": "string",
+                "description": "The id of the day to optimize. Defaults to the first day with 2+ stops."
+            }
+        },
+        "required": []
+    },
+)
+
+create_day_func = FunctionDeclaration(
+    name="create_day",
+    description="Add a new day to the trip, e.g. when the user wants to extend the trip or spread stops out.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "date": {"type": "string", "description": "ISO date for the new day, e.g. '2026-08-02' (optional)"}
+        },
+        "required": []
+    },
+)
+
+set_dates_func = FunctionDeclaration(
+    name="set_dates",
+    description="Set or change the trip's start and/or end date.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "start_date": {"type": "string", "description": "ISO start date, e.g. '2026-08-01'"},
+            "end_date": {"type": "string", "description": "ISO end date, e.g. '2026-08-03'"}
+        },
         "required": []
     },
 )
@@ -297,152 +358,270 @@ plan_trip_func = FunctionDeclaration(
 
 # Tool with all function declarations
 agent_tools = Tool(
-    function_declarations=[search_places_func, add_locations_func, optimize_route_func, plan_trip_func],
+    function_declarations=[
+        search_places_func,
+        plan_trip_func,
+        add_stops_func,
+        remove_stop_func,
+        move_stop_func,
+        optimize_day_func,
+        create_day_func,
+        set_dates_func,
+    ],
 )
 
-def get_chat_response(messages: List[Dict[str, str]], gmaps_client: googlemaps.Client) -> Generator[str, None, None]:
+class TripToolExecutor:
     """
-    Generate a chat response using Vertex AI with tool calling.
-    Supports multi-turn tool calls for chaining actions (e.g., search -> add -> optimize).
+    Executes the agent's trip-mutation tools directly against TripService.
+    Resolves days/stops by id first, then by (case-insensitive) name so the
+    model can reference either.
+    """
+
+    def __init__(self, trip_service, trip_id: str, uid: str = None, claim_token: str = None):
+        self.service = trip_service
+        self.trip_id = trip_id
+        self.uid = uid
+        self.claim_token = claim_token
+
+    @property
+    def _auth(self):
+        return {"uid": self.uid, "claim_token": self.claim_token}
+
+    def _trip(self):
+        return self.service.get_trip(self.trip_id, write=False, **self._auth)
+
+    def _resolve_day(self, day_id: str = None, require_optimizable: bool = False):
+        trip = self._trip()
+        if day_id:
+            for day in trip.days:
+                if day.id == day_id or (day.label or "").lower() == str(day_id).lower():
+                    return day
+            raise ValueError(f"No day matching '{day_id}'")
+        if require_optimizable:
+            for day in trip.days:
+                if len(day.stops) >= 2:
+                    return day
+            raise ValueError("No day has 2 or more stops to optimize")
+        return trip.days[0]
+
+    def _resolve_stop(self, stop_id: str = None, stop_name: str = None):
+        trip = self._trip()
+        for day in trip.days:
+            for stop in day.stops:
+                if stop_id and stop.id == stop_id:
+                    return day, stop
+        if stop_name:
+            needle = stop_name.lower()
+            for day in trip.days:
+                for stop in day.stops:
+                    if needle in stop.name.lower():
+                        return day, stop
+        raise ValueError(f"No stop matching '{stop_id or stop_name}'")
+
+    def add_stops(self, stops: List[Dict], day_id: str = None) -> str:
+        day = self._resolve_day(day_id)
+        added = []
+        for stop_data in stops:
+            stop = self.service.add_stop(self.trip_id, day.id, dict(stop_data), **self._auth)
+            added.append(stop.name)
+        return f"Added to {day.label}: {', '.join(added)}"
+
+    def remove_stop(self, stop_id: str = None, stop_name: str = None) -> str:
+        day, stop = self._resolve_stop(stop_id, stop_name)
+        self.service.remove_stop(self.trip_id, day.id, stop.id, **self._auth)
+        return f"Removed {stop.name} from {day.label}"
+
+    def move_stop(self, to_day_id: str, stop_id: str = None, stop_name: str = None) -> str:
+        _, stop = self._resolve_stop(stop_id, stop_name)
+        target = self._resolve_day(to_day_id)
+        self.service.move_stop(self.trip_id, stop.id, target.id, **self._auth)
+        return f"Moved {stop.name} to {target.label}"
+
+    def optimize_day(self, day_id: str = None) -> str:
+        day = self._resolve_day(day_id, require_optimizable=True)
+        optimized = self.service.optimize_day(self.trip_id, day.id, **self._auth)
+        by_id = {stop.id: stop.name for stop in optimized.stops}
+        order = [by_id[sid] for sid in optimized.route.order if sid in by_id]
+        distance = optimized.route.totalDistanceMiles
+        return f"Optimized {day.label}: {' -> '.join(order)} ({distance} miles total)"
+
+    def create_day(self, date: str = None) -> str:
+        day = self.service.add_day(self.trip_id, date=date, **self._auth)
+        return f"Created {day.label} with id '{day.id}'" + (f" for {date}" if date else "")
+
+    def set_dates(self, start_date: str = None, end_date: str = None) -> str:
+        patch = {}
+        if start_date:
+            patch["startDate"] = start_date
+        if end_date:
+            patch["endDate"] = end_date
+        if not patch:
+            return "No dates provided"
+        self.service.update_trip(self.trip_id, patch, **self._auth)
+        return f"Trip dates set: {start_date or 'unchanged'} to {end_date or 'unchanged'}"
+
+
+# Tool names that mutate the stored trip (frontend refreshes on these)
+MUTATING_TOOLS = {"add_stops", "remove_stop", "move_stop", "optimize_day", "create_day", "set_dates"}
+
+
+def _proto_to_python(value):
+    """Recursively convert Vertex proto Map/Repeated composites to plain python."""
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if hasattr(value, "items"):
+        return {key: _proto_to_python(item) for key, item in value.items()}
+    try:
+        return [_proto_to_python(item) for item in value]
+    except TypeError:
+        return value
+
+
+def get_chat_response(
+    messages: List[Dict[str, str]],
+    gmaps_client: googlemaps.Client,
+    trip_service=None,
+    trip_id: str = None,
+    uid: str = None,
+    claim_token: str = None,
+) -> Generator[Dict[str, Any], None, None]:
+    """
+    Generate a chat response using Vertex AI with server-side tool execution.
+
+    Yields event dicts for the caller to serialize (NDJSON):
+      {"type": "text", "delta": str}      - assistant prose
+      {"type": "places", "places": [...]} - search results to render as cards
+      {"type": "trip_updated"}            - the stored trip changed; refetch it
     """
     system_instruction = None
     if messages and messages[0]['role'] == 'system':
         system_instruction = messages[0]['content']
         messages = messages[1:]
-    
+
+    executor = None
+    if trip_service and trip_id:
+        executor = TripToolExecutor(trip_service, trip_id, uid=uid, claim_token=claim_token)
+
     model = GenerativeModel(
         "gemini-2.5-flash-lite",
         tools=[agent_tools],
         system_instruction=system_instruction
     )
-    
+
     # Rebuild history
     chat_history = []
     for msg in messages[:-1]:
         role = "user" if msg['role'] == 'user' else "model"
         chat_history.append(Content(role=role, parts=[Part.from_text(msg['content'])]))
-    
-    chat = model.start_chat(history=chat_history)
+
+    # response_validation=False: gemini flash occasionally emits a malformed
+    # code-style function call; the SDK validator would poison the whole chat
+    # session. We detect the empty/malformed turn below and nudge a retry.
+    chat = model.start_chat(history=chat_history, response_validation=False)
     last_user_message = messages[-1]['content']
-    
-    # Send initial message (non-streaming) to check for tool calls
+
     response = chat.send_message(last_user_message, stream=False)
-    
-    # Track places found for potential batch add
-    found_places = []
-    
-    # Process tool calls in a loop (supports multi-turn)
-    max_tool_iterations = 15  # Allow for plan -> multiple searches -> add -> optimize
+
+    max_tool_iterations = 15  # plan -> multiple searches -> add -> optimize chains
     iteration = 0
-    
+    malformed_retries = 0
+
     while iteration < max_tool_iterations:
         iteration += 1
-        
+
         try:
-            part = response.candidates[0].content.parts[0]
-        except IndexError:
-            yield "I encountered an error processing your request."
+            parts = list(response.candidates[0].content.parts)
+        except (IndexError, AttributeError):
+            parts = []
+
+        if not parts:
+            if malformed_retries >= 2:
+                yield {"type": "text", "delta": "I had trouble completing that action. Please try rephrasing your request."}
+                return
+            malformed_retries += 1
+            print("Agent produced a malformed/empty turn; nudging a retry.")
+            # The malformed turn was appended to history with no parts, which
+            # the API rejects on the next request - drop such entries.
+            try:
+                while chat._history and not list(chat._history[-1].parts):
+                    chat._history.pop()
+            except Exception as history_error:
+                print(f"  Could not prune malformed history: {history_error}")
+            response = chat.send_message(
+                "Your previous reply was not a valid structured function call. "
+                "Retry the action using the declared tools, one valid function call at a time.",
+                stream=False,
+            )
+            continue
+
+        function_calls = [part.function_call for part in parts if part.function_call]
+        if not function_calls:
+            text = "".join(part.text for part in parts if part.text)
+            if text:
+                yield {"type": "text", "delta": text}
             return
-        
-        # Check if this is a function call
-        if not part.function_call:
-            # No more tool calls, yield text and exit
-            if part.text:
-                yield part.text
-            return
-        
-        fn = part.function_call
-        print(f"Agent calling tool: {fn.name}")
-        
-        if fn.name == "search_places":
-            query = fn.args.get("query")
-            location = fn.args.get("location")
-            radius = fn.args.get("radius")
-            
-            print(f"  -> search_places('{query}', location={location}, radius={radius})")
-            
-            # Execute tool
-            results = search_places(query, location=location, radius=radius, gmaps_client=gmaps_client)
-            found_places.extend(results)
-            
-            # Yield structured place data for frontend to parse
-            if results:
-                yield f"<!--PLACES_DATA:{json.dumps(results)}:PLACES_DATA-->"
-            
-            # Send result back to model
-            function_response = Part.from_function_response(
-                name="search_places",
-                response={"content": results},
-            )
-            
-        elif fn.name == "add_locations_to_itinerary":
-            locations = fn.args.get("locations", [])
-            
-            print(f"  -> add_locations_to_itinerary({len(locations)} locations)")
-            
-            # Yield marker for frontend to add these locations
-            yield f"<!--ADD_LOCATIONS:{json.dumps(locations)}:ADD_LOCATIONS-->"
-            
-            # Send success response back to model
-            function_response = Part.from_function_response(
-                name="add_locations_to_itinerary",
-                response={"content": f"Successfully added {len(locations)} locations to itinerary"},
-            )
-            
-        elif fn.name == "optimize_route":
-            print(f"  -> optimize_route()")
-            
-            # Yield marker for frontend to trigger optimization
-            yield "<!--OPTIMIZE_ROUTE:true:OPTIMIZE_ROUTE-->"
-            
-            # Send success response back to model
-            function_response = Part.from_function_response(
-                name="optimize_route",
-                response={"content": "Route optimization triggered"},
-            )
-            
-        elif fn.name == "plan_trip":
-            origin = fn.args.get("origin")
-            destination = fn.args.get("destination")
-            stop_types = fn.args.get("stop_types")
-            
-            print(f"  -> plan_trip('{origin}' -> '{destination}', stops={stop_types})")
-            
-            # Execute the plan_trip function (compound - searches at all waypoints)
-            trip_plan = plan_trip(origin, destination, stop_types, gmaps_client=gmaps_client)
-            
-            if trip_plan.get("error"):
-                print(f"     Error: {trip_plan['error']}")
-            else:
-                print(f"     Route: {trip_plan['num_waypoints']} waypoints, {trip_plan['total_distance_miles']} miles")
-                print(f"     Places found: {len(trip_plan.get('places_found', []))}")
-                
-                # Yield all found places as PLACES_DATA for frontend to display
+
+        # The model may issue several calls in one turn (e.g. add_stops +
+        # optimize_day); Vertex requires one response part per call part.
+        function_responses = []
+        for fn in function_calls:
+            args = dict(fn.args) if fn.args else {}
+            print(f"Agent calling tool: {fn.name}({args})")
+
+            if fn.name == "search_places":
+                results = search_places(
+                    args.get("query"),
+                    location=args.get("location"),
+                    radius=args.get("radius"),
+                    gmaps_client=gmaps_client,
+                )
+                if results:
+                    yield {"type": "places", "places": results}
+                result_content = {"content": results}
+
+            elif fn.name == "plan_trip":
+                trip_plan = plan_trip(
+                    args.get("origin"),
+                    args.get("destination"),
+                    args.get("stop_types"),
+                    gmaps_client=gmaps_client,
+                )
                 places_found = trip_plan.get("places_found", [])
                 if places_found:
-                    yield f"<!--PLACES_DATA:{json.dumps(places_found)}:PLACES_DATA-->"
-            
-            # Send summary back to model
-            function_response = Part.from_function_response(
-                name="plan_trip",
-                response={"content": f"Found {len(trip_plan.get('places_found', []))} places across {trip_plan.get('num_waypoints', 0)} waypoints from {origin} to {destination}. Distance: {trip_plan.get('total_distance_miles', 0)} miles."},
-            )
-            
-        else:
-            # Unknown function
-            print(f"  -> Unknown function: {fn.name}")
-            function_response = Part.from_function_response(
-                name=fn.name,
-                response={"error": "Unknown function"},
-            )
-        
-        # Continue conversation with function response (non-streaming to check for more tool calls)
-        response = chat.send_message([function_response], stream=False)
-    
-    # If we hit max iterations, stream the final response
+                    yield {"type": "places", "places": places_found}
+                result_content = {
+                    "content": (
+                        f"Found {len(places_found)} places across {trip_plan.get('num_waypoints', 0)} waypoints "
+                        f"from {args.get('origin')} to {args.get('destination')}. "
+                        f"Distance: {trip_plan.get('total_distance_miles', 0)} miles."
+                        if not trip_plan.get("error") else trip_plan["error"]
+                    )
+                }
+
+            elif fn.name in MUTATING_TOOLS:
+                if not executor:
+                    result_content = {"error": "No stored trip is available; ask the user to add a location first."}
+                else:
+                    try:
+                        coerced = {key: _proto_to_python(value) for key, value in args.items()}
+                        outcome = getattr(executor, fn.name)(**coerced)
+                        yield {"type": "trip_updated"}
+                        result_content = {"content": outcome}
+                    except Exception as tool_error:
+                        print(f"  Tool {fn.name} failed: {tool_error}")
+                        result_content = {"error": str(tool_error)}
+
+            else:
+                print(f"  -> Unknown function: {fn.name}")
+                result_content = {"error": "Unknown function"}
+
+            function_responses.append(Part.from_function_response(name=fn.name, response=result_content))
+
+        response = chat.send_message(function_responses, stream=False)
+
     try:
         if response.candidates[0].content.parts[0].text:
-            yield response.candidates[0].content.parts[0].text
+            yield {"type": "text", "delta": response.candidates[0].content.parts[0].text}
     except (IndexError, AttributeError):
-        yield "I completed the requested actions."
+        yield {"type": "text", "delta": "I completed the requested actions."}
 

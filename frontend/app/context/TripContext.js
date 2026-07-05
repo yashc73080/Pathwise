@@ -7,6 +7,7 @@ import { db } from '../firebase/firebase';
 import { getBackendUrl } from '../utils/backendUrl';
 import { createItineraryMarker, setMarkerNumber, clearMarker } from '../utils/markers';
 import { getDayColor } from '../utils/dayColors';
+import { createTrip, getTrip, syncTripDays } from '../firebase/firestore';
 import {
     LEGACY_TRIP_STORAGE_KEY,
     TRIP_STORAGE_KEY,
@@ -67,6 +68,10 @@ export function TripProvider({ children }) {
     // backend. Live snapshots from Firestore are ignored while dirty so a
     // remote update can't silently discard in-progress edits.
     const isDirtyRef = useRef(false);
+    // Always-current trip for async callbacks (chat flows span multiple
+    // renders; closures over `trip` would go stale mid-conversation).
+    const tripRef = useRef(trip);
+    tripRef.current = trip;
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
     const activeDay = useMemo(() => getActiveDay(trip, activeDayId), [trip, activeDayId]);
@@ -259,9 +264,11 @@ export function TripProvider({ children }) {
             doc(db, 'trips', tripId),
             (snapshot) => {
                 if (!snapshot.exists() || isDirtyRef.current) return;
-                const remote = normalizeTrip({ ...snapshot.data(), id: snapshot.id });
                 setTrip(prev => {
                     if (prev.id !== snapshot.id) return prev;
+                    // The stored document never carries the claim token
+                    // (it lives in trip_claims); keep the local one.
+                    const remote = normalizeTrip({ ...snapshot.data(), id: snapshot.id, claimToken: prev.claimToken });
                     const prevStamp = prev.updatedAt?.seconds ?? prev.updatedAt;
                     const remoteStamp = remote.updatedAt?.seconds ?? remote.updatedAt;
                     if (prevStamp != null && remoteStamp != null && String(prevStamp) === String(remoteStamp)) {
@@ -563,6 +570,45 @@ export function TripProvider({ children }) {
         toast.success('Stop moved');
     }, [clearRoutePolyline]);
 
+    // Make sure the trip exists server-side (and is in sync with local edits)
+    // so the chat agent can operate on it. Anonymous users get a claimToken
+    // back from create; it is kept on the trip for subsequent writes.
+    const ensureTripPersisted = useCallback(async (currentUser) => {
+        const current = tripRef.current;
+        if (!current.id) {
+            const data = await createTrip(currentUser, serializeTripForSave(current));
+            const id = data.trip.id;
+            const claimToken = data.claimToken || null;
+            isDirtyRef.current = false;
+            setTrip(prev => normalizeTrip({ ...prev, id, claimToken }));
+            return { id, claimToken };
+        }
+        if (isDirtyRef.current) {
+            try {
+                await syncTripDays(currentUser, current.id, serializeTripForSave(current), current.claimToken);
+                isDirtyRef.current = false;
+            } catch (error) {
+                // Read-only viewers can still chat; the agent's edits will fail
+                // with a clear authorization message instead.
+                console.warn('Could not sync local edits before chat:', error);
+            }
+        }
+        return { id: current.id, claimToken: current.claimToken || null };
+    }, []);
+
+    // Pull the latest stored trip after the chat agent mutates it server-side.
+    const refreshTripFromServer = useCallback(async (currentUser) => {
+        const current = tripRef.current;
+        if (!current.id) return;
+        try {
+            const fetched = await getTrip(currentUser, current.id, current.claimToken);
+            isDirtyRef.current = false;
+            setTrip(prev => normalizeTrip({ ...fetched, claimToken: prev.claimToken }));
+        } catch (error) {
+            console.error('Failed to refresh trip after agent update:', error);
+        }
+    }, []);
+
     // Called by the /trip/ share page before the map finishes loading so the
     // localStorage restore doesn't clobber the trip fetched from the URL.
     const disableLocalRestore = useCallback(() => {
@@ -656,6 +702,8 @@ export function TripProvider({ children }) {
         loadTrip,
         disableLocalRestore,
         markTripSaved,
+        ensureTripPersisted,
+        refreshTripFromServer,
         activePanel,
         setActivePanel,
         chatHeight,

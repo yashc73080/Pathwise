@@ -44,6 +44,35 @@ export const deleteTrip = async (currentUser, tripId) => {
     await parseResponse(response);
 };
 
+// Like addTrip, but returns the full create payload (trip, claimToken for
+// anonymous trips, shareUrl) instead of just the id.
+export const createTrip = async (currentUser, tripData) => {
+    const response = await fetch(`${getBackendUrl()}/api/trips`, {
+        method: 'POST',
+        headers: await authHeaders(currentUser),
+        body: JSON.stringify(tripData)
+    });
+    return parseResponse(response);
+};
+
+// Replace the stored trip's days (and title/dates) with the local state.
+export const syncTripDays = async (currentUser, tripId, tripData, claimToken = null) => {
+    const headers = await authHeaders(currentUser);
+    if (claimToken) headers['X-Claim-Token'] = claimToken;
+    const response = await fetch(`${getBackendUrl()}/api/trips/${tripId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+            days: tripData.days,
+            startDate: tripData.startDate,
+            endDate: tripData.endDate,
+            chatSessionId: tripData.chatSessionId
+        })
+    });
+    const data = await parseResponse(response);
+    return data.trip;
+};
+
 export const getTrip = async (currentUser, tripId, claimToken = null) => {
     const headers = await authHeaders(currentUser);
     if (claimToken) headers['X-Claim-Token'] = claimToken;

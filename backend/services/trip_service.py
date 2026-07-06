@@ -74,6 +74,12 @@ class TripService:
         for field_name in ("title", "destination", "startDate", "endDate", "visibility", "chatSessionId"):
             if field_name in patch:
                 setattr(trip, field_name, patch[field_name])
+        if "days" in patch:
+            # Full replacement of the itinerary (used to sync local edits
+            # before the chat agent operates on the stored trip).
+            trip.days = [Day.from_dict(day) for day in patch["days"] or []]
+            if not trip.days:
+                trip.days = [Day(id=new_day_id(), label="Day 1")]
         return self.repository.update(trip)
 
     def delete_trip(self, trip_id: str, uid: Optional[str] = None, claim_token: Optional[str] = None) -> None:

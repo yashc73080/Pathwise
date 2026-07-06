@@ -99,6 +99,11 @@ conda activate trip
 python app.py
 ```
 
+Start MCP server (instead of `app.py`): 
+```bash
+uvicorn asgi:application --port 5000
+```
+
 **Start the frontend** (in `frontend/` directory):
 ```bash
 npm run dev # for web

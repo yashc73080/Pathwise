@@ -7,13 +7,13 @@ import toast from 'react-hot-toast';
 import { addTrip, updateTripName } from '../firebase/firestore';
 import WeatherVisualization from './WeatherVisualization';
 import ShareTripButton from './ShareTripButton';
+import RouteTimeline from './RouteTimeline';
 import { useDraggablePanel } from '../hooks/useDraggablePanel';
 import { getBackendUrl } from '../utils/backendUrl';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { getDayColor } from '../utils/dayColors';
 
 export default function RoutePanel() {
-    const { trip, activeDayId, setActiveDayId, optimizedRoute, selectedLocations, optimizedCoords, exportToGoogleMaps, reorderOptimizedRoute, activePanel, setActivePanel, routeHeight, setRouteHeight, serializeCurrentTrip, markTripSaved } = useTrip();
+    const { trip, activeDayId, setActiveDayId, optimizedRoute, selectedLocations, optimizedCoords, orderedRouteStops, exportToGoogleMaps, reorderOptimizedRoute, updateStopDetails, activePanel, setActivePanel, routeHeight, setRouteHeight, serializeCurrentTrip, markTripSaved } = useTrip();
     const { userLoggedIn, currentUser, openLoginModal } = useAuth();
 
     const [isSaving, setIsSaving] = useState(false);
@@ -96,73 +96,6 @@ export default function RoutePanel() {
             <p className="text-sm text-gray-500 dark:text-gray-400">Add locations and click &quot;Optimize Route&quot; to see your optimized path here.</p>
         </div>
     );
-
-    // Handle drag end for route reordering
-    const handleRouteDragEnd = (result) => {
-        if (!result.destination) return;
-        if (result.destination.index === result.source.index) return;
-        reorderOptimizedRoute(result.source.index, result.destination.index);
-    };
-
-    // Route list component with drag-and-drop using renderClone for proper portal behavior
-    const RouteList = () => {
-        // Render function for both the in-place item and the dragging clone 
-        const renderDraggableItem = (provided, snapshot, location, index) => (
-            <div
-                ref={provided.innerRef}
-                {...provided.draggableProps}
-                style={{
-                    ...provided.draggableProps.style,
-                }}
-                className={`flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg transition-all duration-200 ${snapshot.isDragging ? 'shadow-lg scale-[1.02] bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-            >
-                {/* Drag handle - only this element triggers dragging */}
-                <div
-                    {...provided.dragHandleProps}
-                    className="p-1 cursor-grab active:cursor-grabbing touch-none"
-                    style={{ touchAction: 'none' }}
-                >
-                    <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                    </svg>
-                </div>
-                <span
-                    className="w-7 h-7 text-white rounded-full flex items-center justify-center text-sm font-medium shadow-sm"
-                    style={{ backgroundColor: activeDayColor.bg, border: `2px solid ${activeDayColor.border}` }}
-                >
-                    {index + 1}
-                </span>
-                <span className="text-gray-700 dark:text-gray-200 flex-1 truncate">{location.name}</span>
-            </div>
-        );
-
-        return (
-            <DragDropContext onDragEnd={handleRouteDragEnd}>
-                <Droppable
-                    droppableId="mobile-optimized-route"
-                    renderClone={(provided, snapshot, rubric) =>
-                        renderDraggableItem(provided, snapshot, optimizedCoords[rubric.source.index], rubric.source.index)
-                    }
-                >
-                    {(provided) => (
-                        <div
-                            {...provided.droppableProps}
-                            ref={provided.innerRef}
-                            className="space-y-2"
-                        >
-                            {optimizedCoords.map((location, i) => (
-                                <Draggable key={`mobile-route-${i}`} draggableId={`mobile-route-${i}`} index={i}>
-                                    {(provided, snapshot) => renderDraggableItem(provided, snapshot, location, i)}
-                                </Draggable>
-                            ))}
-                            {provided.placeholder}
-                        </div>
-                    )}
-                </Droppable>
-            </DragDropContext>
-        );
-    };
 
     return (
         <>
@@ -259,7 +192,15 @@ export default function RoutePanel() {
                         activeDayId={activeDayId}
                         setActiveDayId={setActiveDayId}
                     />
-                    {optimizedRoute ? <RouteList /> : <EmptyState />}
+                    {optimizedRoute ? (
+                        <RouteTimeline
+                            stops={orderedRouteStops}
+                            dayColor={activeDayColor}
+                            onReorder={reorderOptimizedRoute}
+                            onUpdateStop={updateStopDetails}
+                            droppableId="mobile-optimized-route"
+                        />
+                    ) : <EmptyState />}
 
                     {/* Weather Visualization */}
                     <WeatherVisualization />

@@ -10,12 +10,37 @@ calls) plus a share_url the user opens to claim the trip into their account.
 """
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from routes.trips import build_share_url, serialize_trip
 from services.trip_service import AuthorizationError, NotFoundError, ValidationError
+
+
+def _transport_security() -> TransportSecuritySettings:
+    """
+    FastMCP's DNS-rebinding protection defaults to allowing only
+    localhost/127.0.0.1/[::1] Host headers, which rejects every real
+    deployment (Cloud Run, a custom domain, ...) with a 421. Extend the
+    allowlist with MCP_ALLOWED_HOSTS/MCP_ALLOWED_ORIGINS (comma-separated)
+    so the deployed host can be added without touching this file again.
+    """
+    # Known Cloud Run host baked in as a default; override/extend via env
+    # vars (comma-separated) if you add a custom domain later.
+    default_host = "pathwise-backend-778971177326.us-central1.run.app"
+    extra_hosts = [h.strip() for h in os.getenv("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()]
+    extra_origins = [o.strip() for o in os.getenv("MCP_ALLOWED_ORIGINS", "").split(",") if o.strip()]
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*", default_host, *extra_hosts],
+        allowed_origins=[
+            "http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*",
+            f"https://{default_host}", *extra_origins,
+        ],
+    )
 
 
 def create_mcp_server(trip_service, gmaps_client) -> FastMCP:
@@ -29,6 +54,7 @@ def create_mcp_server(trip_service, gmaps_client) -> FastMCP:
             "Pathwise's own assistant). Keep the trip_id and claim_token to make "
             "further edits on the user's behalf."
         ),
+        transport_security=_transport_security(),
         stateless_http=True,
         streamable_http_path="/",
     )

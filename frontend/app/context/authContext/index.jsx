@@ -17,6 +17,8 @@ export function AuthProvider({ children }) {
 
     const [isSavedTripsModalOpen, setIsSavedTripsModalOpen] = useState(false);
 
+    const [isConnectAiModalOpen, setIsConnectAiModalOpen] = useState(false);
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, initializeUser);
         return unsubscribe;
@@ -39,6 +41,9 @@ export function AuthProvider({ children }) {
     const openSavedTripsModal = () => setIsSavedTripsModalOpen(true);
     const closeSavedTripsModal = () => setIsSavedTripsModalOpen(false);
 
+    const openConnectAiModal = () => setIsConnectAiModalOpen(true);
+    const closeConnectAiModal = () => setIsConnectAiModalOpen(false);
+
     const value = {
         currentUser,
         userLoggedIn,
@@ -48,7 +53,10 @@ export function AuthProvider({ children }) {
         closeLoginModal,
         isSavedTripsModalOpen,
         openSavedTripsModal,
-        closeSavedTripsModal
+        closeSavedTripsModal,
+        isConnectAiModalOpen,
+        openConnectAiModal,
+        closeConnectAiModal
     }
 
     return (

@@ -9,7 +9,7 @@ import { getBackendUrl } from '../utils/backendUrl';
 import { createPreviewMarker, clearMarker } from '../utils/markers';
 
 export default function ChatInterface({ selectedLocations, onNewChat, onShowHistory, showHistoryProp, setShowHistoryProp, newChatTrigger }) {
-  const { currentUser } = useAuth();
+  const { currentUser, openConnectAiModal } = useAuth();
   const { setCurrentPlace, setCurrentMarker, currentMarker, map, setChatHeight, setActivePanel, activePanel, currentChatSessionId, setCurrentChatSessionId, addToItinerary, ensureTripPersisted, refreshTripFromServer } = useTrip();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -17,6 +17,7 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [internalShowHistory, setInternalShowHistory] = useState(false);
+  const [showConnectBubble, setShowConnectBubble] = useState(true);
 
   // Use external showHistory control if provided (for mobile header integration)
   const showHistory = showHistoryProp !== undefined ? showHistoryProp : internalShowHistory;
@@ -541,9 +542,33 @@ export default function ChatInterface({ selectedLocations, onNewChat, onShowHist
         className="flex-1 overflow-y-auto space-y-4 mb-4 p-4"
       >
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm">
-            <p>Start a conversation with Pathwise AI</p>
-            <p className="mt-2 text-xs">Ask for recommendations, routes, or local tips.</p>
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm gap-4">
+            {showConnectBubble && (
+              <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-full pl-3 pr-1.5 py-1.5 shadow-sm">
+                <button
+                  onClick={openConnectAiModal}
+                  className="flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Connect ChatGPT or Claude
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowConnectBubble(false); }}
+                  className="p-1 text-blue-400 hover:text-blue-600 dark:hover:text-blue-300"
+                  aria-label="Dismiss"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <div className="text-center">
+              <p>Start a conversation with Pathwise AI</p>
+              <p className="mt-2 text-xs">Ask for recommendations, routes, or local tips.</p>
+            </div>
           </div>
         )}
         {messages.map((message, index) => {

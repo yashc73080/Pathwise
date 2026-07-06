@@ -14,6 +14,7 @@ import LoginModal from './LoginModal';
 import ProfileMenu from './ProfileMenu';
 
 import SavedTripsModal from './SavedTripsModal';
+import ConnectAiModal from './ConnectAiModal';
 
 // Mobile Optimize Button Component
 function MobileOptimizeButton() {
@@ -84,6 +85,7 @@ export default function AppShell({ children }) {
                 <LoginModal />
                 <ProfileMenu />
                 <SavedTripsModal />
+                <ConnectAiModal />
 
                 {/* Mobile Optimize Button */}
                 <MobileOptimizeButton />

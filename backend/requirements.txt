@@ -7,4 +7,7 @@ gunicorn
 networkx
 google-cloud-aiplatform
 firebase-admin
+mcp
+uvicorn
+a2wsgi
 # psycopg2

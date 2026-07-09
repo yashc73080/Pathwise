@@ -48,20 +48,31 @@ def create_mcp_server(trip_service, gmaps_client) -> FastMCP:
         "pathwise",
         instructions=(
             "Pathwise turns a trip plan into an interactive, editable itinerary with a "
-            "map, optimized routes, and drag-and-drop editing. Whenever the user asks you "
-            "to plan, organize, or build a trip/vacation/itinerary - a road trip, a "
-            "weekend getaway, a multi-city tour, anything with multiple stops or days - "
-            "use create_trip to save your plan into Pathwise rather than only describing "
-            "it in chat. Do this proactively; the user does not need to say 'Pathwise' or "
-            "ask for a map explicitly for this to be the right tool.\n\n"
-            "Typical flow: reason about the trip as you normally would, then call "
-            "create_trip with the days and stops you've decided on (search_places first "
-            "if you need real coordinates/addresses). Give the user the returned "
-            "share_url - opening it shows the trip on an interactive map where they can "
-            "keep editing, drag stops between days, or chat with Pathwise's own assistant. "
-            "Keep the trip_id and claim_token yourself so you can keep editing the same "
-            "trip in later turns (add_stop, move_stop, optimize_day, etc.) instead of "
-            "creating a duplicate."
+            "map, optimized routes, and drag-and-drop editing.\n\n"
+            "USE create_trip WHENEVER THE CONVERSATION IS ABOUT A REAL TRIP WITH KNOWN "
+            "DATES AND A PLACE - not just when the user explicitly asks you to 'plan an "
+            "itinerary'. This includes messages that look like:\n"
+            "- 'What can I do/see for fun while I'm in [city] on [dates]?'\n"
+            "- 'I'll be in [city] from [date] to [date], any recommendations?'\n"
+            "- 'I'm going to [event] on [date], help me fill the rest of the trip'\n"
+            "- explicit itinerary/vacation/road-trip planning requests\n"
+            "In other words: if the user gives you a destination plus concrete dates (or "
+            "a flight/event that implies dates) and wants suggestions, activities, or "
+            "things to do - that IS a trip to save, even if they phrased it as a question "
+            "rather than a command to 'plan a trip'. Don't wait for the word 'itinerary'.\n\n"
+            "Do this proactively; the user does not need to say 'Pathwise' or ask for a "
+            "map explicitly for this to be the right tool.\n\n"
+            "Typical flow: call create_trip early - as soon as you know the destination "
+            "and dates - even before you've filled in every activity. Use start_date/"
+            "end_date from any flight or event info given (convert arrival/departure "
+            "times to the stop's arrivalTime/departureTime or a note). Then, as you "
+            "brainstorm activities with the user, use search_places to find real places "
+            "and add_stop to add the ones they like, and optimize_day once a day has "
+            "several stops. Give the user the returned share_url - opening it shows the "
+            "trip on an interactive map where they can keep editing, drag stops between "
+            "days, or chat with Pathwise's own assistant. Keep the trip_id and claim_token "
+            "yourself so later turns edit the same trip (add_stop, move_stop, "
+            "optimize_day, etc.) instead of creating a duplicate."
         ),
         transport_security=_transport_security(),
         stateless_http=True,
@@ -83,13 +94,16 @@ def create_mcp_server(trip_service, gmaps_client) -> FastMCP:
         end_date: Optional[str] = None,
         days: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        """Save a planned trip into Pathwise as an interactive itinerary with a map.
+        """Save a real trip (destination + dates) into Pathwise as an interactive
+        itinerary with a map - use this as soon as you know where and when,
+        not only once every activity is decided.
 
-        Call this whenever you've planned a trip with the user - any vacation,
-        road trip, weekend, or multi-stop itinerary - even if they never
-        mentioned Pathwise by name. It's the natural next step after planning,
-        not an optional extra: it gives the user a visual, editable, shareable
-        version of what you just discussed, with route optimization and maps.
+        Trigger this for ANY message where the user names a destination and
+        dates (directly or via a flight/event) and wants suggestions, things
+        to do, or an itinerary - e.g. "what can I do for fun while I'm in SF
+        July 24-26?" counts, not just "plan me a trip to SF". Call it early
+        with just title/destination/start_date/end_date (days can be added
+        later via add_stop) rather than waiting until the whole plan is final.
 
         days is a list like [{"date": "2026-08-01", "stops": [{"name": "Golden
         Gate Bridge", "address": "...", "lat": 37.8, "lng": -122.5}]}]. lat/lng

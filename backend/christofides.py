@@ -108,16 +108,138 @@ def make_cached_distance_fn(locations: List[dict], gmaps_client=None) -> Distanc
     return distance
 
 
+# Trips up to this size are solved exactly with Held-Karp instead of a heuristic.
+# 13 stops => at most 2^12 * 12 * 12 DP transitions, well under a second.
+EXACT_SOLVE_MAX_STOPS = 13
+
+
 def build_graph(locations, distance_fn: Optional[DistanceFn] = None):
     """Build a complete graph with distances between all location pairs."""
     G = nx.Graph()
     distance = distance_fn or make_cached_distance_fn(locations)
-    
+
     for i in range(len(locations)):
         for j in range(i + 1, len(locations)):
             G.add_edge(i, j, weight=distance(locations[i], locations[j]))
-    
+
     return G
+
+
+def _build_distance_matrix(locations, distance_fn: DistanceFn) -> List[List[float]]:
+    n = len(locations)
+    dist = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(i + 1, n):
+            d = distance_fn(locations[i], locations[j])
+            dist[i][j] = d
+            dist[j][i] = d
+    return dist
+
+
+def _held_karp(dist: List[List[float]], start: int, end: int) -> List[int]:
+    """
+    Exact minimum Hamiltonian path from start to end via Held-Karp DP.
+    Pass end == start to solve the cycle variant; the returned order then
+    starts and finishes at start.
+    """
+    n = len(dist)
+    others = [i for i in range(n) if i != start and i != end]
+    m = len(others)
+    if m == 0:
+        return [start, end]
+
+    inf = float("inf")
+    size = 1 << m
+    dp = [[inf] * m for _ in range(size)]
+    parent = [[-1] * m for _ in range(size)]
+    for k in range(m):
+        dp[1 << k][k] = dist[start][others[k]]
+
+    for mask in range(size):
+        row = dp[mask]
+        for k in range(m):
+            cost = row[k]
+            if cost == inf:
+                continue
+            base = dist[others[k]]
+            for nxt in range(m):
+                if (mask >> nxt) & 1:
+                    continue
+                nmask = mask | (1 << nxt)
+                cand = cost + base[others[nxt]]
+                if cand < dp[nmask][nxt]:
+                    dp[nmask][nxt] = cand
+                    parent[nmask][nxt] = k
+
+    full = size - 1
+    best_k = min(range(m), key=lambda k: dp[full][k] + dist[others[k]][end])
+
+    order = []
+    mask, k = full, best_k
+    while k != -1:
+        order.append(others[k])
+        prev = parent[mask][k]
+        mask ^= 1 << k
+        k = prev
+    order.reverse()
+    return [start] + order + [end]
+
+
+def _two_opt_pass(order: List[int], dist: List[List[float]]) -> bool:
+    """One sweep of 2-opt segment reversals; endpoints stay fixed."""
+    improved = False
+    for i in range(1, len(order) - 2):
+        for j in range(i + 1, len(order) - 1):
+            a, b = order[i - 1], order[i]
+            c, d = order[j], order[j + 1]
+            delta = dist[a][c] + dist[b][d] - dist[a][b] - dist[c][d]
+            if delta < -1e-9:
+                order[i:j + 1] = order[i:j + 1][::-1]
+                improved = True
+    return improved
+
+
+def _or_opt_pass(order: List[int], dist: List[List[float]]) -> bool:
+    """One sweep of Or-opt: relocate segments of 1-3 stops; endpoints stay fixed."""
+    improved = False
+    for seg_len in (1, 2, 3):
+        i = 1
+        while i + seg_len <= len(order) - 1:
+            seg = order[i:i + seg_len]
+            before, after = order[i - 1], order[i + seg_len]
+            removal_gain = (
+                dist[before][seg[0]] + dist[seg[-1]][after] - dist[before][after]
+            )
+            if removal_gain <= 1e-9:
+                i += 1
+                continue
+
+            rest = order[:i] + order[i + seg_len:]
+            best_pos, best_delta = None, 1e-9
+            for pos in range(1, len(rest)):
+                u, v = rest[pos - 1], rest[pos]
+                insert_cost = dist[u][seg[0]] + dist[seg[-1]][v] - dist[u][v]
+                delta = removal_gain - insert_cost
+                if delta > best_delta:
+                    best_delta = delta
+                    best_pos = pos
+            if best_pos is not None:
+                order[:] = rest[:best_pos] + seg + rest[best_pos:]
+                improved = True
+                i = 1
+            else:
+                i += 1
+    return improved
+
+
+def _local_search(order: List[int], dist: List[List[float]]) -> List[int]:
+    """Run 2-opt and Or-opt to convergence on an order with fixed endpoints."""
+    while True:
+        improved = _two_opt_pass(order, dist)
+        improved = _or_opt_pass(order, dist) or improved
+        if not improved:
+            return order
+
 
 def find_minimum_weight_perfect_matching(G, odd_degree_vertices):
     """Find a minimum weight perfect matching for the given vertices."""
@@ -157,65 +279,79 @@ def tsp(locations, start_index=0, end_index=None, distance_fn: Optional[Distance
             # If start and end are the same, treat as cycle
             end_index = None
     
-    # Build the complete graph
-    G = build_graph(locations, distance_fn=distance_fn or make_cached_distance_fn(locations, gmaps_client=gmaps_client))
-    
-    # For path TSP (start to end), use a simpler greedy nearest neighbor approach
-    # that respects the start and end constraints
-    if end_index is not None and end_index != start_index:
-        return _tsp_with_endpoints(locations, G, start_index, end_index)
-    
-    # Standard Christofides for cycle TSP
+    distance = distance_fn or make_cached_distance_fn(locations, gmaps_client=gmaps_client)
+    dist = _build_distance_matrix(locations, distance)
+    is_cycle = end_index is None
+
+    # Small trips get the true optimum; cycles are the end == start case.
+    if len(locations) <= EXACT_SOLVE_MAX_STOPS:
+        order = _held_karp(dist, start_index, start_index if is_cycle else end_index)
+        return [locations[i] for i in order]
+
+    if is_cycle:
+        order = _christofides_cycle(dist, start_index)
+    else:
+        order = _nearest_neighbor_path(dist, start_index, end_index)
+    order = _local_search(order, dist)
+    return [locations[i] for i in order]
+
+
+def _christofides_cycle(dist: List[List[float]], start_index: int) -> List[int]:
+    """Christofides construction; returns a cycle order with start_index repeated last."""
+    G = nx.Graph()
+    n = len(dist)
+    for i in range(n):
+        for j in range(i + 1, n):
+            G.add_edge(i, j, weight=dist[i][j])
+
     # Find minimum spanning tree
     T = nx.minimum_spanning_tree(G, weight='weight')
-    
+
     # Find vertices with odd degree
     odd_degree_vertices = [v for v, d in T.degree() if d % 2 == 1]
-    
+
     # Find minimum weight perfect matching of odd degree vertices
     if odd_degree_vertices:
         M = find_minimum_weight_perfect_matching(G, odd_degree_vertices)
-        
+
         # Combine MST and matching to create multigraph
         H = nx.MultiGraph(T)
         H.add_edges_from(M)
     else:
         H = nx.MultiGraph(T)
-    
+
     # Find Eulerian circuit
     try:
         euler_circuit = list(nx.eulerian_circuit(H, source=start_index))
     except nx.NetworkXError:
-        euler_circuit = list(nx.edge_dfs(H, source=start_index))
-    
+        euler_circuit = list(nx.eulerian_circuit(nx.eulerize(H), source=start_index))
+
     # Convert Eulerian circuit to Hamiltonian path
     visited = set()
     hamiltonian_path = []
-    
+
     for u, v in euler_circuit:
         if u not in visited:
             hamiltonian_path.append(u)
             visited.add(u)
-    
+
     # Add the last vertex if not included
     if euler_circuit:
         last_v = euler_circuit[-1][1]
         if last_v not in visited:
             hamiltonian_path.append(last_v)
-    
+
     # Ensure we start with start_index (rotate the cycle)
     if hamiltonian_path and hamiltonian_path[0] != start_index:
         if start_index in hamiltonian_path:
             start_pos = hamiltonian_path.index(start_index)
             hamiltonian_path = hamiltonian_path[start_pos:] + hamiltonian_path[:start_pos]
-    
+
     # Complete the cycle
     if hamiltonian_path and hamiltonian_path[-1] != start_index:
         hamiltonian_path.append(start_index)
-    
-    # Convert indices back to locations
-    optimized_route = [locations[i] for i in hamiltonian_path]
-    return optimized_route
+
+    return hamiltonian_path
 
 
 def route_total_distance(route, distance_fn: Optional[DistanceFn] = None, gmaps_client=None):
@@ -225,41 +361,23 @@ def route_total_distance(route, distance_fn: Optional[DistanceFn] = None, gmaps_
     return sum(distance(route[i], route[i + 1]) for i in range(len(route) - 1))
 
 
-def _tsp_with_endpoints(locations, G, start_index, end_index):
-    """
-    Solve TSP with fixed start and end points using nearest neighbor heuristic.
-    This ensures the path goes from start to end without zigzagging back.
-    """
-    n = len(locations)
-    unvisited = set(range(n))
+def _nearest_neighbor_path(dist: List[List[float]], start_index: int, end_index: int) -> List[int]:
+    """Greedy nearest-neighbor construction for a fixed start and end; the
+    caller is expected to clean it up with _local_search."""
+    unvisited = set(range(len(dist)))
     unvisited.remove(start_index)
     unvisited.remove(end_index)
-    
+
     path = [start_index]
     current = start_index
-    
-    # Greedy nearest neighbor, but always keeping end_index for last
     while unvisited:
-        # Find nearest unvisited node
-        nearest = None
-        nearest_dist = float('inf')
-        
-        for node in unvisited:
-            dist = G[current][node]['weight']
-            if dist < nearest_dist:
-                nearest_dist = dist
-                nearest = node
-        
-        if nearest is not None:
-            path.append(nearest)
-            unvisited.remove(nearest)
-            current = nearest
-    
-    # Add end point last
+        nearest = min(unvisited, key=lambda node: dist[current][node])
+        path.append(nearest)
+        unvisited.remove(nearest)
+        current = nearest
+
     path.append(end_index)
-    
-    # Convert indices back to locations
-    return [locations[i] for i in path]
+    return path
 
 if __name__ == '__main__':
     # Example usage

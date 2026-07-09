@@ -61,6 +61,26 @@ class ChristofidesBatchingTest(unittest.TestCase):
         self.assertEqual(route[0]["name"], "A")
         self.assertEqual(route[-1]["name"], "C")
 
+    def test_tsp_finds_optimal_order_where_greedy_fails(self):
+        # Points on a line: start=0, X=1, Y=-3, end=10. Greedy nearest-neighbor
+        # from start grabs X first (0->1->-3->10 = 18); the optimum backtracks
+        # to Y first (0->-3->1->10 = 16).
+        locations = [
+            {"name": "start", "lat": 0.0, "lng": 0.0},
+            {"name": "X", "lat": 1.0, "lng": 0.0},
+            {"name": "Y", "lat": -3.0, "lng": 0.0},
+            {"name": "end", "lat": 10.0, "lng": 0.0},
+        ]
+
+        def distance(origin, destination):
+            return abs(origin["lat"] - destination["lat"])
+
+        route = tsp(locations, start_index=0, end_index=3, distance_fn=distance)
+        total = sum(distance(route[i], route[i + 1]) for i in range(len(route) - 1))
+
+        self.assertEqual([stop["name"] for stop in route], ["start", "Y", "X", "end"])
+        self.assertAlmostEqual(total, 16.0)
+
 
 if __name__ == "__main__":
     unittest.main()
